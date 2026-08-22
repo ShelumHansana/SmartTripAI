@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs & APKs
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+*.apk
+
+# Vercel
+.vercel/
+
+# IDE / System
+.DS_Store
+Thumbs.db

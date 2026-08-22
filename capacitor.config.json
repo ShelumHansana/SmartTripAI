@@ -1,0 +1,9 @@
+{
+  "appId": "com.smarttripai.app",
+  "appName": "SmartTripAI",
+  "webDir": "www",
+  "server": {
+    "url": "https://smarttrip-ai.vercel.app",
+    "cleartext": true
+  }
+}

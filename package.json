@@ -1,0 +1,21 @@
+{
+  "name": "smarttripai",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "build": "node build.js",
+    "cap:add": "npx cap add android",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:build": "npm run cap:sync && cd android && gradlew.bat assembleDebug"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0"
+  }
+}
