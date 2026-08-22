@@ -2562,5 +2562,73 @@ button {
   }
 }
 
+/* Landscape Mode for Smartphones */
+@media (max-height: 500px) and (orientation: landscape) {
+  .app-bar {
+    padding: 4px 12px !important;
+    min-height: 42px !important;
+  }
+
+  .app-logo {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 0.85rem !important;
+  }
+
+  .app-name {
+    font-size: 0.95rem !important;
+  }
+
+  .app-subtitle {
+    display: none !important;
+  }
+
+  .icon-btn, .avatar-badge {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  .bottom-tab-bar {
+    min-height: 46px !important;
+    padding: 2px 4px !important;
+  }
+
+  .tab-item i {
+    font-size: 0.9rem !important;
+  }
+
+  .tab-item span {
+    font-size: 0.55rem !important;
+  }
+
+  .hud-tab-icon {
+    width: 30px !important;
+    height: 30px !important;
+    margin-top: -8px !important;
+  }
+}
+
+/* Tablets & Foldables unfolded (769px to 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  body.mode-frame .mobile-frame {
+    width: min(100%, 480px);
+    height: min(920px, 95vh);
+  }
+
+  body.mode-fullscreen .screen-content {
+    max-width: 680px;
+    margin: 0 auto;
+  }
+}
+
+/* Large Displays / Desktop Fullscreen constraint */
+@media (min-width: 1025px) {
+  body.mode-fullscreen .screen-content {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+}
+
+
 
 

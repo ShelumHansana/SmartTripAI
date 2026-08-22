@@ -79,14 +79,6 @@
   margin: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-}
-
-*::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
 }
 
 html, body {
@@ -102,8 +94,6 @@ body {
   color: var(--text-main);
   line-height: 1.5;
   transition: background-color var(--transition-normal), color var(--transition-normal);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -500,32 +490,32 @@ body.native-app .app-bar {
 .screen-viewport {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden !important;
-  overscroll-behavior: none !important;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   position: relative;
   background: var(--bg-app);
-  scrollbar-width: none;
-  -ms-overflow-style: none;
 }
 
+/* Custom Scrollbar */
 .screen-viewport::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
+  width: 5px;
+}
+.screen-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+.screen-viewport::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 10px;
 }
 
 .screen {
   display: none;
-  height: 100%;
-  overflow: hidden !important;
-  animation: fadeIn 0.25s ease-in-out;
+  min-height: 100%;
+  animation: fadeIn 0.3s ease-in-out;
 }
 
 .screen.active {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden !important;
+  display: block;
 }
 
 @keyframes fadeIn {
@@ -534,12 +524,7 @@ body.native-app .app-bar {
 }
 
 .screen-content {
-  padding: 12px 14px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden !important;
-  box-sizing: border-box;
+  padding: 16px;
 }
 
 .p-0 { padding: 0 !important; }
@@ -915,45 +900,36 @@ body.native-app .app-bar {
    8. SCREEN 1: ONBOARDING & SETUP
    -------------------------------------------------------------------------- */
 .onboarding-hero {
-  margin-bottom: 8px;
+  margin-bottom: 16px;
 }
 
 .hero-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: var(--radius-full);
   background: var(--secondary-light);
   color: var(--secondary);
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .hero-title {
-  font-size: 1.18rem;
-  line-height: 1.2;
-  margin-bottom: 4px;
+  font-size: 1.4rem;
+  line-height: 1.25;
+  margin-bottom: 6px;
   color: var(--text-main);
 }
 
 .hero-subtext {
-  font-size: 0.74rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
 }
 
 .input-card-engine {
-  margin-bottom: 8px;
-}
-
-.setup-step {
-  display: none;
-  animation: fadeIn 0.25s ease-in-out;
-}
-
-.setup-step.active {
-  display: block;
+  margin-bottom: 24px;
 }
 
 /* --------------------------------------------------------------------------
@@ -2585,6 +2561,74 @@ button {
     display: none !important;
   }
 }
+
+/* Landscape Mode for Smartphones */
+@media (max-height: 500px) and (orientation: landscape) {
+  .app-bar {
+    padding: 4px 12px !important;
+    min-height: 42px !important;
+  }
+
+  .app-logo {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 0.85rem !important;
+  }
+
+  .app-name {
+    font-size: 0.95rem !important;
+  }
+
+  .app-subtitle {
+    display: none !important;
+  }
+
+  .icon-btn, .avatar-badge {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  .bottom-tab-bar {
+    min-height: 46px !important;
+    padding: 2px 4px !important;
+  }
+
+  .tab-item i {
+    font-size: 0.9rem !important;
+  }
+
+  .tab-item span {
+    font-size: 0.55rem !important;
+  }
+
+  .hud-tab-icon {
+    width: 30px !important;
+    height: 30px !important;
+    margin-top: -8px !important;
+  }
+}
+
+/* Tablets & Foldables unfolded (769px to 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  body.mode-frame .mobile-frame {
+    width: min(100%, 480px);
+    height: min(920px, 95vh);
+  }
+
+  body.mode-fullscreen .screen-content {
+    max-width: 680px;
+    margin: 0 auto;
+  }
+}
+
+/* Large Displays / Desktop Fullscreen constraint */
+@media (min-width: 1025px) {
+  body.mode-fullscreen .screen-content {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+}
+
 
 
 
