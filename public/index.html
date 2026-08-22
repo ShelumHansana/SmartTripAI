@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#1A5CFF">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <title>SmartTripAI - All-in-One AI Travel Companion</title>
+  
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Leaflet CSS for Maps -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="mode-frame">
+
+  <!-- Desktop Controls Bar (Simulator Header) -->
+  <header class="simulator-bar">
+    <div class="sim-brand">
+      <span class="sim-logo-icon">✨</span>
+      <span class="sim-brand-title">SmartTripAI <span class="sim-badge">Pro Design Studio</span></span>
+    </div>
+    
+    <div class="sim-controls">
+      <!-- Demo Preset Quick Selectors -->
+      <div class="preset-group">
+        <span class="preset-label"><i class="fa-solid fa-wand-magic-sparkles"></i> Demo Trips:</span>
+        <button class="preset-btn active" onclick="loadTripPreset('srilanka')">🇱🇰 Sri Lanka Tour</button>
+        <button class="preset-btn" onclick="loadTripPreset('japan')">🇯🇵 Japan Route</button>
+        <button class="preset-btn" onclick="loadTripPreset('europe')">🇪🇺 Swiss Alps</button>
+      </div>
+
+      <!-- View Mode Toggle -->
+      <button class="sim-action-btn" id="viewModeToggle" onclick="toggleViewMode()" title="Toggle View Mode">
+        <i class="fa-solid fa-mobile-screen-button"></i> Frame View
+      </button>
+
+      <!-- Theme Switcher -->
+      <button class="sim-action-btn" id="themeToggleBtn" onclick="toggleDarkMode()" title="Toggle Light/Dark Theme">
+        <i class="fa-solid fa-moon"></i> Dark Mode
+      </button>
+    </div>
+  </header>
+
+  <!-- Mobile Device Simulator Container -->
+  <main class="app-viewport">
+    <div class="mobile-frame" id="mobileFrame">
+      
+      <!-- Hardware Notch / Dynamic Island -->
+      <div class="phone-header">
+        <div class="notch">
+          <div class="camera-dot"></div>
+          <div class="speaker-grill"></div>
+        </div>
+        <div class="status-bar">
+          <span class="status-time" id="liveClock">09:41</span>
+          <div class="status-icons">
+            <i class="fa-solid fa-signal"></i>
+            <i class="fa-solid fa-wifi"></i>
+            <i class="fa-solid fa-battery-full"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- App Header Bar -->
+      <div class="app-bar">
+        <div class="app-branding">
+          <div class="app-logo">
+            <i class="fa-solid fa-compass"></i>
+          </div>
+          <div>
+            <h1 class="app-name">SmartTrip<span>AI</span></h1>
+            <span class="app-subtitle" id="screenSubtitle">Your AI-Powered Journey</span>
+          </div>
+        </div>
+        
+        <div class="app-actions">
+          <button class="icon-btn" onclick="openVoiceModal()" title="Ask AI Companion">
+            <i class="fa-solid fa-microphone text-primary"></i>
+            <span class="pulse-dot"></span>
+          </button>
+          <button class="icon-btn" onclick="openShareModal()" title="Share & Export">
+            <i class="fa-solid fa-share-nodes"></i>
+          </button>
+          <div class="avatar-badge">
+            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" alt="User Avatar">
+          </div>
+        </div>
+      </div>
+
+      <!-- App Screen Viewport Stack -->
+      <div class="screen-viewport">
+
+        <!-- ======================================================== -->
+        <!-- SCREEN 1: ONBOARDING & TRIP SETUP (INPUT ENGINE) -->
+        <!-- ======================================================== -->
+        <div class="screen active" id="screen-1">
+          <div class="screen-content">
+            
+            <!-- Hero Banner -->
+            <div class="onboarding-hero">
+              <div class="hero-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Route Engine 3.0</div>
+              <h2 class="hero-title">Your AI-Powered Journey Begins Here</h2>
+              <p class="hero-subtext">Enter parameters below to let SmartTripAI craft a route-optimized, personalized itinerary.</p>
+            </div>
+
+            <!-- Input Card Engine -->
+            <div class="card glass-card input-card-engine">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-sliders text-primary"></i> Trip Parameters</h3>
+                <span class="badge badge-primary">Step 1 of 2</span>
+              </div>
+
+              <!-- Start Point (Origin) -->
+              <div class="form-group">
+                <label class="form-label"><i class="fa-solid fa-circle-dot text-primary"></i> Origin (Start Point)</label>
+                <div class="input-with-action">
+                  <input type="text" id="originInput" class="form-control" value="Colombo, Sri Lanka" placeholder="Search starting city or address...">
+                  <button class="input-action-btn" onclick="detectGPSLocation()" title="Detect current GPS">
+                    <i class="fa-solid fa-location-crosshairs"></i> GPS
+                  </button>
+                </div>
+              </div>
+
+              <!-- Destination Point -->
+              <div class="form-group">
+                <label class="form-label"><i class="fa-solid fa-location-dot text-secondary"></i> Destination</label>
+                <input type="text" id="destInput" class="form-control" value="Kandy & Ella, Sri Lanka" placeholder="Where do you want to explore?">
+                
+                <!-- Quick Destination Suggestions -->
+                <div class="pill-group mt-2">
+                  <span class="pill-title">Popular:</span>
+                  <button class="pill-chip" onclick="setDestination('Kandy & Ella, Sri Lanka')">🇱🇰 Kandy & Ella</button>
+                  <button class="pill-chip" onclick="setDestination('Kyoto & Nara, Japan')">🇯🇵 Kyoto</button>
+                  <button class="pill-chip" onclick="setDestination('Interlaken, Switzerland')">🇨🇭 Swiss Alps</button>
+                  <button class="pill-chip" onclick="setDestination('Amalfi Coast, Italy')">🇮🇹 Amalfi</button>
+                </div>
+              </div>
+
+              <!-- Trip Duration & Dates -->
+              <div class="form-row">
+                <div class="form-group flex-1">
+                  <label class="form-label"><i class="fa-regular fa-calendar"></i> Duration</label>
+                  <div class="stepper-control">
+                    <button class="stepper-btn" onclick="adjustDuration(-1)"><i class="fa-solid fa-minus"></i></button>
+                    <span class="stepper-val" id="durationValue">3 Days</span>
+                    <button class="stepper-btn" onclick="adjustDuration(1)"><i class="fa-solid fa-plus"></i></button>
+                  </div>
+                </div>
+
+                <div class="form-group flex-1">
+                  <label class="form-label"><i class="fa-regular fa-clock"></i> Start Date</label>
+                  <input type="date" id="startDateInput" class="form-control" value="2026-08-15">
+                </div>
+              </div>
+
+              <!-- Group Size Breakdown -->
+              <div class="form-group">
+                <label class="form-label"><i class="fa-solid fa-users"></i> Travelers Breakdown</label>
+                <div class="group-breakdown-grid">
+                  <div class="breakdown-item">
+                    <span class="b-label"><i class="fa-solid fa-user"></i> Adults</span>
+                    <div class="mini-stepper">
+                      <button onclick="adjustGroup('adults', -1)">-</button>
+                      <span id="adultsCount">4</span>
+                      <button onclick="adjustGroup('adults', 1)">+</button>
+                    </div>
+                  </div>
+                  <div class="breakdown-item">
+                    <span class="b-label"><i class="fa-solid fa-child"></i> Kids</span>
+                    <div class="mini-stepper">
+                      <button onclick="adjustGroup('kids', -1)">-</button>
+                      <span id="kidsCount">0</span>
+                      <button onclick="adjustGroup('kids', 1)">+</button>
+                    </div>
+                  </div>
+                  <div class="breakdown-item">
+                    <span class="b-label"><i class="fa-solid fa-paw"></i> Pets</span>
+                    <div class="mini-stepper">
+                      <button onclick="adjustGroup('pets', -1)">-</button>
+                      <span id="petsCount">0</span>
+                      <button onclick="adjustGroup('pets', 1)">+</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Preferences: Budget Level -->
+              <div class="form-group">
+                <label class="form-label"><i class="fa-solid fa-wallet"></i> Budget Level</label>
+                <div class="segment-control" id="budgetSegment">
+                  <button class="segment-btn" data-value="economy" onclick="selectSegment('budgetSegment', this)">
+                    <span class="s-icon">💵</span> Economy
+                  </button>
+                  <button class="segment-btn active" data-value="mid" onclick="selectSegment('budgetSegment', this)">
+                    <span class="s-icon">💳</span> Mid-Range
+                  </button>
+                  <button class="segment-btn" data-value="luxury" onclick="selectSegment('budgetSegment', this)">
+                    <span class="s-icon">💎</span> Luxury
+                  </button>
+                </div>
+              </div>
+
+              <!-- Preferences: Pace -->
+              <div class="form-group">
+                <label class="form-label"><i class="fa-solid fa-gauge-high"></i> Travel Pace</label>
+                <div class="segment-control" id="paceSegment">
+                  <button class="segment-btn" data-value="relaxed" onclick="selectSegment('paceSegment', this)">
+                    🧘‍♂️ Relaxed
+                  </button>
+                  <button class="segment-btn active" data-value="balanced" onclick="selectSegment('paceSegment', this)">
+                    ⚖️ Balanced
+                  </button>
+                  <button class="segment-btn" data-value="packed" onclick="selectSegment('paceSegment', this)">
+                    ⚡ Packed
+                  </button>
+                </div>
+              </div>
+
+              <!-- Preferences: Trip Vibe (Multi Select) -->
+              <div class="form-group">
+                <label class="form-label"><i class="fa-solid fa-compass-drafting"></i> Trip Vibe & Interests</label>
+                <div class="tag-selector" id="vibeTags">
+                  <button class="tag-pill active" onclick="toggleVibeTag(this)">🌲 Nature & Wildlife</button>
+                  <button class="tag-pill active" onclick="toggleVibeTag(this)">⛩️ Culture & Heritage</button>
+                  <button class="tag-pill active" onclick="toggleVibeTag(this)">🍜 Culinary & Dining</button>
+                  <button class="tag-pill" onclick="toggleVibeTag(this)">🧗‍♂️ Adventure & Hiking</button>
+                  <button class="tag-pill" onclick="toggleVibeTag(this)">🏖️ Coastal & Beach</button>
+                  <button class="tag-pill" onclick="toggleVibeTag(this)">📸 Photography Spots</button>
+                </div>
+              </div>
+
+              <!-- Primary CTA -->
+              <button class="btn btn-primary btn-block btn-lg mt-3 shine-effect" onclick="generateAIItinerary()">
+                <span>Generate AI Itinerary</span> <i class="fa-solid fa-wand-magic-sparkles"></i>
+              </button>
+
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- SCREEN 2: TRIP DASHBOARD & ITINERARY OVERVIEW -->
+        <!-- ======================================================== -->
+        <div class="screen" id="screen-2">
+          <div class="screen-content p-0">
+            
+            <!-- Destination Hero Carousel -->
+            <div class="dest-hero-wrapper">
+              <img src="assets/hero_kandy.png" id="heroDestImage" alt="Destination Hero" class="dest-hero-img">
+              <div class="dest-hero-overlay">
+                <div class="dest-badges">
+                  <span class="badge badge-glass"><i class="fa-solid fa-star text-warning"></i> AI Route Optimized</span>
+                  <span class="badge badge-secondary" id="heroVibeBadge">Nature & Culture</span>
+                </div>
+                <h2 class="dest-title" id="heroTripTitle">Colombo ➔ Kandy ➔ Ella</h2>
+                <div class="dest-meta-strip" id="heroTripMeta">
+                  <span><i class="fa-regular fa-calendar"></i> 3 Days</span>
+                  <span>•</span>
+                  <span><i class="fa-solid fa-user-group"></i> 4 Adults</span>
+                  <span>•</span>
+                  <span><i class="fa-solid fa-car-side"></i> 340 km</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Content Padding Container -->
+            <div class="px-3 pt-3">
+              
+              <!-- Key Stats Strip Grid -->
+              <div class="stats-grid">
+                <div class="stat-card">
+                  <div class="stat-icon bg-primary-light text-primary"><i class="fa-solid fa-route"></i></div>
+                  <div class="stat-data">
+                    <span class="stat-val" id="statDistance">340 km</span>
+                    <span class="stat-label">Total Route</span>
+                  </div>
+                </div>
+
+                <div class="stat-card">
+                  <div class="stat-icon bg-secondary-light text-secondary"><i class="fa-solid fa-sack-dollar"></i></div>
+                  <div class="stat-data">
+                    <span class="stat-val" id="statCost">$480 - $620</span>
+                    <span class="stat-label">Est. Total Cost</span>
+                  </div>
+                </div>
+
+                <div class="stat-card">
+                  <div class="stat-icon bg-accent-light text-accent"><i class="fa-solid fa-car"></i></div>
+                  <div class="stat-data">
+                    <span class="stat-val" id="statVehicle">7-Seater SUV</span>
+                    <span class="stat-label">AI Recommended</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Day Navigation Tabs -->
+              <div class="day-tabs-wrapper">
+                <div class="day-tabs" id="dayTabsNav">
+                  <button class="day-tab active" onclick="switchDayTab(1)">
+                    <span class="day-num">Day 1</span>
+                    <span class="day-name">Colombo ➔ Kandy</span>
+                  </button>
+                  <button class="day-tab" onclick="switchDayTab(2)">
+                    <span class="day-num">Day 2</span>
+                    <span class="day-name">Kandy Highlights</span>
+                  </button>
+                  <button class="day-tab" onclick="switchDayTab(3)">
+                    <span class="day-num">Day 3</span>
+                    <span class="day-name">Ella & Scenic Express</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Day Timeline List -->
+              <div class="timeline-container" id="timelineList">
+                <!-- Timeline items dynamically rendered by app.js -->
+              </div>
+
+              <!-- Add Stop Floating Bar -->
+              <div class="add-stop-bar mt-3 mb-4">
+                <button class="btn btn-outline btn-block" onclick="openAddStopModal()">
+                  <i class="fa-solid fa-circle-plus"></i> Add Custom Viewpoint or Attraction Stop
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- SCREEN 3: TRANSPORT & FUEL ESTIMATOR -->
+        <!-- ======================================================== -->
+        <div class="screen" id="screen-3">
+          <div class="screen-content">
+            
+            <div class="screen-header-block">
+              <h2><i class="fa-solid fa-car-side text-primary"></i> Transport & Route Intelligence</h2>
+              <p class="text-muted">AI-matched vehicle recommendations, nearby hire deals, and dynamic fuel cost estimators.</p>
+            </div>
+
+            <!-- AI Pick Highlight Hero Card -->
+            <div class="card glass-card vehicle-ai-pick">
+              <div class="ai-pick-badge">
+                <i class="fa-solid fa-crown"></i> AI Optimal Match (Score: 98%)
+              </div>
+              
+              <div class="vehicle-hero-flex">
+                <img src="assets/luxury_suv.png" alt="Luxury 7-Seater SUV" class="vehicle-img">
+                <div class="vehicle-details">
+                  <h3 class="v-name">7-Seater Luxury SUV</h3>
+                  <p class="v-spec"><i class="fa-solid fa-gas-pump"></i> AWD Petrol / Hybrid • 7-Speed Auto</p>
+                  <div class="v-tags">
+                    <span class="badge badge-success">Best for 4+ Adults</span>
+                    <span class="badge badge-primary">Mountain Terrain Ready</span>
+                    <span class="badge badge-glass">Luggage Space: 4 Large Bags</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="v-pros-cons mt-3">
+                <div class="pro-item"><i class="fa-solid fa-check text-success"></i> High ground clearance for Sri Lankan hill country winding roads</div>
+                <div class="pro-item"><i class="fa-solid fa-check text-success"></i> Panoramic sunroof for scenic view points</div>
+              </div>
+
+              <button class="btn btn-primary btn-block mt-3" onclick="openVehicleBookingModal('7-Seater Luxury SUV', '$65/day')">
+                Hire This Vehicle ($65/day) <i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <!-- Vehicle Alternatives Carousel -->
+            <div class="section-heading mt-4">
+              <h4>Alternative Vehicles</h4>
+              <span class="text-sm text-muted">Select to re-calculate fuel</span>
+            </div>
+
+            <div class="vehicle-carousel" id="vehicleCarousel">
+              <!-- Rendered dynamically -->
+            </div>
+
+            <!-- Vehicle Hiring Hub Cards -->
+            <div class="section-heading mt-4">
+              <h4><i class="fa-solid fa-building-user text-primary"></i> Verified Rental Agencies</h4>
+            </div>
+
+            <div class="rental-agencies-list" id="rentalAgenciesList">
+              <!-- Rendered dynamically -->
+            </div>
+
+            <!-- Fuel & Route Calculator Widget -->
+            <div class="card glass-card mt-4 fuel-calculator-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-calculator text-secondary"></i> Live Route & Fuel Cost Estimator</h3>
+                <span class="badge badge-warning" id="fuelEstimateTotalBadge">Est. Fuel: 38L (~$55.10)</span>
+              </div>
+
+              <div class="distance-breakdown-bar mt-2">
+                <div class="d-segment highway" style="width: 60%;" title="Highway (60% - 204 km)">Highway 60%</div>
+                <div class="d-segment mountain" style="width: 25%;" title="Mountain (25% - 85 km)">Mountain 25%</div>
+                <div class="d-segment city" style="width: 15%;" title="City (15% - 51 km)">City 15%</div>
+              </div>
+
+              <!-- Interactive Fuel Calculator Sliders -->
+              <div class="calc-sliders mt-3">
+                <div class="slider-group">
+                  <div class="slider-header">
+                    <span>Vehicle Fuel Efficiency</span>
+                    <strong id="efficiencyVal">9.0 L / 100km</strong>
+                  </div>
+                  <input type="range" id="efficiencySlider" min="5" max="18" step="0.5" value="9.0" oninput="updateFuelCalculator()">
+                </div>
+
+                <div class="slider-group mt-3">
+                  <div class="slider-header">
+                    <span>Fuel Price per Liter</span>
+                    <strong id="fuelPriceVal">$1.45 / L</strong>
+                  </div>
+                  <input type="range" id="fuelPriceSlider" min="0.80" max="2.50" step="0.05" value="1.45" oninput="updateFuelCalculator()">
+                </div>
+              </div>
+
+              <!-- Fuel Summary Table -->
+              <div class="fuel-summary-table mt-3">
+                <div class="fs-row">
+                  <span>Total Route Distance:</span>
+                  <strong>340 km</strong>
+                </div>
+                <div class="fs-row">
+                  <span>Est. Fuel Consumed:</span>
+                  <strong id="fuelLitersResult">30.6 Liters</strong>
+                </div>
+                <div class="fs-row fs-total">
+                  <span>Estimated Fuel Cost:</span>
+                  <strong id="fuelCostResult" class="text-primary">$44.37</strong>
+                </div>
+              </div>
+
+              <!-- EV Charging Stations Info -->
+              <div class="ev-info-box mt-3">
+                <div class="ev-header">
+                  <i class="fa-solid fa-charging-station text-success"></i>
+                  <span><strong>3 EV Fast Charging Hubs</strong> available along this route</span>
+                </div>
+                <div class="pill-group mt-2">
+                  <span class="pill-chip"><i class="fa-solid fa-bolt text-warning"></i> Colombo Highway Rest Stop (50 kW)</span>
+                  <span class="pill-chip"><i class="fa-solid fa-bolt text-warning"></i> Kandy City Center (150 kW)</span>
+                  <span class="pill-chip"><i class="fa-solid fa-bolt text-warning"></i> Nuwara Eliya Post Office (100 kW)</span>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- SCREEN 4: STAYS & DINING (ROUTE-ALIGNED) -->
+        <!-- ======================================================== -->
+        <div class="screen" id="screen-4">
+          <div class="screen-content p-0">
+            
+            <!-- Map Container Header -->
+            <div class="route-map-header">
+              <div id="routeMap" class="route-leaflet-map"></div>
+              
+              <!-- Google Maps Layer Switcher Bar -->
+              <div class="gmaps-layer-bar">
+                <span class="gmaps-badge"><i class="fa-brands fa-google text-primary"></i> Maps</span>
+                <button class="layer-chip active" onclick="setGoogleMapLayer('streets', this)" title="Google Streets View"><i class="fa-solid fa-road"></i> Streets</button>
+                <button class="layer-chip" onclick="setGoogleMapLayer('hybrid', this)" title="Google Satellite Hybrid"><i class="fa-solid fa-satellite"></i> Satellite</button>
+                <button class="layer-chip" onclick="setGoogleMapLayer('terrain', this)" title="Google Terrain Elevation"><i class="fa-solid fa-mountain"></i> Terrain</button>
+                <button class="layer-chip" onclick="setGoogleMapLayer('traffic', this)" title="Live Google Traffic"><i class="fa-solid fa-traffic-light"></i> Traffic</button>
+              </div>
+
+              <div class="map-overlay-bar">
+                <span class="map-status"><i class="fa-solid fa-map-pin text-primary"></i> 14 Route Stops Loaded</span>
+                <div class="map-filter-chips">
+                  <button class="m-chip active" onclick="filterMapNodes('all', this)">All</button>
+                  <button class="m-chip" onclick="filterMapNodes('hotel', this)">🏨 Stays</button>
+                  <button class="m-chip" onclick="filterMapNodes('food', this)">🍜 Dining</button>
+                  <button class="m-chip" onclick="filterMapNodes('attraction', this)">📸 Sights</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Google Maps Quick Route Bar -->
+            <div class="px-3 pt-3">
+              <button class="btn btn-outline btn-block gmaps-open-route-btn" onclick="openCurrentRouteInGoogleMaps()">
+                <i class="fa-brands fa-google text-primary"></i> <span>Open Complete Route in Google Maps App</span> <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+              </button>
+            </div>
+              
+              <!-- Accommodations Section -->
+              <div class="section-header-flex">
+                <h3><i class="fa-solid fa-hotel text-primary"></i> Curated Stays</h3>
+                <span class="badge badge-primary" id="staysCountBadge">4 Top Matches</span>
+              </div>
+
+              <!-- Filter Chips for Accommodations -->
+              <div class="pill-group mb-3" id="stayFilters">
+                <button class="pill-chip active" onclick="filterStays('all', this)">All Types</button>
+                <button class="pill-chip" onclick="filterStays('villa', this)">🏡 Eco Villas</button>
+                <button class="pill-chip" onclick="filterStays('hotel', this)">🏨 Boutique Hotels</button>
+                <button class="pill-chip" onclick="filterStays('resort', this)">⛰️ Mountain Resorts</button>
+              </div>
+
+              <!-- Stays Cards List -->
+              <div class="stays-grid" id="staysGrid">
+                <!-- Dynamically populated -->
+              </div>
+
+              <!-- Dining & Refreshments Section -->
+              <div class="section-header-flex mt-4">
+                <h3><i class="fa-solid fa-utensils text-secondary"></i> Route-Aligned Dining Stops</h3>
+                <span class="badge badge-secondary">AI Local Specialties</span>
+              </div>
+
+              <div class="dining-list mt-2" id="diningList">
+                <!-- Dynamically populated -->
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- SCREEN 5: TOTAL BUDGET & COST BREAKDOWN -->
+        <!-- ======================================================== -->
+        <div class="screen" id="screen-5">
+          <div class="screen-content">
+            
+            <div class="screen-header-block">
+              <h2><i class="fa-solid fa-chart-pie text-primary"></i> Total Trip Budget Analytics</h2>
+              <p class="text-muted">Interactive breakdown of transport, stays, food, and activity fees with real-time budget level shifting.</p>
+            </div>
+
+            <!-- Interactive Donut Chart Card -->
+            <div class="card glass-card chart-card">
+              <div class="chart-flex-wrapper">
+                <div class="chart-canvas-box">
+                  <canvas id="budgetDonutChart" width="180" height="180"></canvas>
+                  <div class="chart-center-val">
+                    <span class="cc-label">Grand Total</span>
+                    <strong class="cc-price" id="grandTotalDisplay">$540</strong>
+                  </div>
+                </div>
+
+                <div class="chart-legend-box" id="chartLegend">
+                  <!-- Legend items dynamically inserted -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Dynamic Cost Adjustment Slider -->
+            <div class="card glass-card mt-3 budget-slider-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-sliders text-warning"></i> Real-time Budget Level Adjuster</h3>
+                <span class="badge badge-glass" id="sliderBudgetTierLabel">Tier: Mid-Range ($$)</span>
+              </div>
+              <p class="text-sm text-muted">Drag slider to dynamically adjust stays, transport, and dining suggestions across all screens!</p>
+
+              <div class="range-slider-wrapper mt-3">
+                <input type="range" id="globalBudgetSlider" min="1" max="3" step="1" value="2" onchange="onGlobalBudgetSliderChange(this.value)">
+                <div class="slider-ticks">
+                  <span>💵 Economy ($320)</span>
+                  <span>💳 Mid-Range ($540)</span>
+                  <span>💎 Luxury ($980)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Detailed Cost Breakdown Categories -->
+            <div class="section-heading mt-4">
+              <h4>Itemized Expense Breakdown</h4>
+            </div>
+
+            <div class="cost-categories-list" id="costBreakdownList">
+              <!-- Dynamically populated -->
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- SCREEN 6: LIVE "ON-TRIP AI GUIDE" MODE (NAVIGATION HUD) -->
+        <!-- ======================================================== -->
+        <div class="screen" id="screen-6">
+          <div class="screen-content hud-screen p-0">
+            
+            <!-- Live Navigation Map Canvas Background -->
+            <div class="hud-map-wrapper">
+              <div id="hudMap" class="hud-leaflet-map"></div>
+              
+              <!-- HUD Top Overlay Status -->
+              <div class="hud-top-bar">
+                <div class="hud-leg-info">
+                  <span class="hud-pulse-badge"><span class="hud-pulse-dot"></span> LIVE AI NAVIGATION</span>
+                  <h3 class="hud-leg-title" id="hudLegTitle">Leg 2: Kandy ➔ Nuwara Eliya</h3>
+                  <span class="hud-leg-sub" id="hudLegSub">118 km remaining • 2h 15m driving</span>
+                </div>
+
+                <div class="hud-speed-badge">
+                  <span class="speed-val" id="hudSpeedVal">68</span>
+                  <span class="speed-unit">KM/H</span>
+                </div>
+              </div>
+
+              <!-- HUD Floating AI Voice Companion Widget -->
+              <div class="hud-ai-companion glass-card">
+                <div class="hud-companion-header">
+                  <div class="ai-avatar-glow">
+                    <i class="fa-solid fa-robot"></i>
+                  </div>
+                  <div class="flex-1">
+                    <h4 class="hud-companion-name">SmartTrip AI Guide</h4>
+                    <span class="text-xs text-primary" id="aiVoiceStatus"><i class="fa-solid fa-volume-high"></i> Ready to speak</span>
+                  </div>
+                  <button class="btn btn-sm btn-primary" id="audioToggleBtn" onclick="toggleVoiceAudio()">
+                    <i class="fa-solid fa-volume-high"></i> Listen
+                  </button>
+                </div>
+
+                <div class="hud-companion-bubble mt-2" id="hudCompanionText">
+                  "In 2.4 km: Scenic Tea Plantation Viewpoint coming up on your left! Tap to add a 15-minute photo & Ceylon tea stop."
+                </div>
+
+                <!-- Quick AI Voice Query Prompts -->
+                <div class="pill-group mt-2">
+                  <button class="pill-chip pill-hud" onclick="askAIVoicePrompt('Tell me history of Kandy')">📜 Local History</button>
+                  <button class="pill-chip pill-hud" onclick="askAIVoicePrompt('Nearest coffee stop')">☕ Nearest Coffee</button>
+                  <button class="pill-chip pill-hud" onclick="askAIVoicePrompt('Weather ahead')">🌤️ Weather Ahead</button>
+                </div>
+              </div>
+
+              <!-- HUD Bottom Bar & Emergency Buttons -->
+              <div class="hud-bottom-panel px-3 pb-3">
+                
+                <!-- Google Maps Turn-by-Turn GPS Navigation CTA -->
+                <button class="btn btn-primary btn-block mb-2 hud-gmaps-cta" onclick="launchGoogleMapsNavigation()">
+                  <i class="fa-brands fa-google"></i> <span>Launch Google Maps GPS Navigation</span> <i class="fa-solid fa-location-arrow"></i>
+                </button>
+
+                <!-- Journey Progress Bar -->
+                <div class="hud-progress-card glass-card p-3 mb-2">
+                  <div class="hud-progress-header">
+                    <span>Trip Progress</span>
+                    <strong class="text-primary" id="hudProgressPercent">65% Completed</strong>
+                  </div>
+                  <div class="hud-progress-bar-track mt-1">
+                    <div class="hud-progress-bar-fill" id="hudProgressBarFill" style="width: 65%;"></div>
+                  </div>
+                </div>
+
+                <!-- Nearby Emergency & Quick Actions Grid -->
+                <div class="hud-emergency-grid">
+                  <button class="hud-quick-btn" onclick="triggerHUDQuickAction('gas')">
+                    <i class="fa-solid fa-gas-pump text-warning"></i>
+                    <span>Gas (2.4km)</span>
+                  </button>
+
+                  <button class="hud-quick-btn" onclick="triggerHUDQuickAction('food')">
+                    <i class="fa-solid fa-mug-hot text-secondary"></i>
+                    <span>Rest (4.1km)</span>
+                  </button>
+
+                  <button class="hud-quick-btn" onclick="triggerHUDQuickAction('hospital')">
+                    <i class="fa-solid fa-hospital text-danger"></i>
+                    <span>Hospital</span>
+                  </button>
+
+                  <button class="hud-quick-btn" onclick="triggerHUDQuickAction('mechanic')">
+                    <i class="fa-solid fa-wrench text-info"></i>
+                    <span>Mechanic</span>
+                  </button>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+      </div> <!-- End Screen Viewport -->
+
+      <!-- Bottom Tab Navigation Bar -->
+      <nav class="bottom-tab-bar">
+        <button class="tab-item active" data-screen="screen-1" onclick="switchScreen('screen-1')">
+          <i class="fa-solid fa-sliders"></i>
+          <span>Setup</span>
+        </button>
+
+        <button class="tab-item" data-screen="screen-2" onclick="switchScreen('screen-2')">
+          <i class="fa-solid fa-calendar-days"></i>
+          <span>Itinerary</span>
+        </button>
+
+        <button class="tab-item" data-screen="screen-3" onclick="switchScreen('screen-3')">
+          <i class="fa-solid fa-car-side"></i>
+          <span>Transport</span>
+        </button>
+
+        <button class="tab-item" data-screen="screen-4" onclick="switchScreen('screen-4')">
+          <i class="fa-solid fa-hotel"></i>
+          <span>Stays & Food</span>
+        </button>
+
+        <button class="tab-item" data-screen="screen-5" onclick="switchScreen('screen-5')">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>Budget</span>
+        </button>
+
+        <button class="tab-item tab-hud" data-screen="screen-6" onclick="switchScreen('screen-6')">
+          <div class="hud-tab-icon">
+            <i class="fa-solid fa-location-arrow"></i>
+          </div>
+          <span>AI HUD</span>
+        </button>
+      </nav>
+
+      <!-- Bottom Home Indicator -->
+      <div class="home-indicator"></div>
+
+    </div>
+  </main>
+
+  <!-- ======================================================== -->
+  <!-- MODAL DIALOGS -->
+  <!-- ======================================================== -->
+
+  <!-- Add Custom Stop Modal -->
+  <div class="modal-backdrop" id="addStopModal">
+    <div class="modal-card glass-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-location-dot text-primary"></i> Add Custom Viewpoint Stop</h3>
+        <button class="modal-close-btn" onclick="closeModal('addStopModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Venue / Attraction Name</label>
+          <input type="text" id="newStopName" class="form-control" placeholder="e.g. Nine Arch Bridge Viewpoint">
+        </div>
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label class="form-label">Category</label>
+            <select id="newStopCategory" class="form-control">
+              <option value="viewpoint">📸 View Point</option>
+              <option value="attraction">🏛️ Culture / Temple</option>
+              <option value="food">☕ Scenic Cafe</option>
+              <option value="activity">🧗 Adventure</option>
+            </select>
+          </div>
+          <div class="form-group flex-1">
+            <label class="form-label">Duration (mins)</label>
+            <input type="number" id="newStopDuration" class="form-control" value="45">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Est. Entry Fee ($)</label>
+          <input type="number" id="newStopFee" class="form-control" value="10">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('addStopModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="submitCustomStop()">Add to Itinerary</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vehicle Booking Modal -->
+  <div class="modal-backdrop" id="vehicleModal">
+    <div class="modal-card glass-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-car text-primary"></i> Reserve Transport</h3>
+        <button class="modal-close-btn" onclick="closeModal('vehicleModal')">&times;</button>
+      </div>
+      <div class="modal-body text-center">
+        <div class="success-icon-badge bg-primary-light text-primary mb-3">
+          <i class="fa-solid fa-car-side fa-2x"></i>
+        </div>
+        <h4 id="modalVehicleTitle">7-Seater Luxury SUV</h4>
+        <p class="text-muted" id="modalVehiclePrice">$65 / day • Verified Partner</p>
+        <div class="card bg-surface p-3 mt-3 text-left">
+          <div class="fs-row"><span>Driver Option:</span> <strong>Self-Drive or Hire Driver (+$25/day)</strong></div>
+          <div class="fs-row mt-1"><span>Insurance:</span> <strong>Full Comprehensive Included</strong></div>
+          <div class="fs-row mt-1"><span>Pickup:</span> <strong>Colombo Airport (CMB)</strong></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('vehicleModal')">Close</button>
+        <button class="btn btn-primary" onclick="confirmVehicleBooking()">Confirm Instant Reservation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Share / Export Modal -->
+  <div class="modal-backdrop" id="shareModal">
+    <div class="modal-card glass-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-share-nodes text-primary"></i> Share & Export Trip</h3>
+        <button class="modal-close-btn" onclick="closeModal('shareModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-sm text-muted">Share your AI-curated itinerary with fellow travelers or export as PDF.</p>
+        <div class="share-grid mt-3">
+          <button class="share-btn" onclick="shareTripAction('link')"><i class="fa-solid fa-link text-primary"></i><span>Copy Link</span></button>
+          <button class="share-btn" onclick="shareTripAction('pdf')"><i class="fa-solid fa-file-pdf text-danger"></i><span>Export PDF</span></button>
+          <button class="share-btn" onclick="shareTripAction('calendar')"><i class="fa-solid fa-calendar-plus text-success"></i><span>Add Calendar</span></button>
+          <button class="share-btn" onclick="shareTripAction('whatsapp')"><i class="fa-brands fa-whatsapp text-success"></i><span>WhatsApp</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Voice Query Assistant Modal -->
+  <div class="modal-backdrop" id="voiceModal">
+    <div class="modal-card glass-card text-center">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-microphone text-primary"></i> SmartTrip AI Voice Companion</h3>
+        <button class="modal-close-btn" onclick="closeModal('voiceModal')">&times;</button>
+      </div>
+      <div class="modal-body py-4">
+        <div class="voice-wave-animation">
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+        </div>
+        <h4 class="mt-3">Listening to your request...</h4>
+        <p class="text-muted text-sm mt-1">Try saying: "Find me organic tea cafes near Kandy" or "Recalculate fuel for an EV".</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('voiceModal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JS Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

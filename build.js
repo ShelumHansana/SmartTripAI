@@ -1,30 +1,28 @@
 const fs = require('fs');
 const path = require('path');
 
-const wwwDir = path.join(__dirname, 'www');
+const targetDirs = [path.join(__dirname, 'www'), path.join(__dirname, 'public')];
 
-// Clean and recreate www directory
-if (fs.existsSync(wwwDir)) {
-  fs.rmSync(wwwDir, { recursive: true, force: true });
-}
-fs.mkdirSync(wwwDir, { recursive: true });
-
-// Copy files
-const filesToCopy = ['index.html', 'styles.css', 'app.js', 'manifest.json'];
-filesToCopy.forEach(file => {
-  const src = path.join(__dirname, file);
-  if (fs.existsSync(src)) {
-    fs.copyFileSync(src, path.join(wwwDir, file));
-    console.log(`Copied ${file} -> www/`);
+targetDirs.forEach(dir => {
+  if (fs.existsSync(dir)) {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
+  fs.mkdirSync(dir, { recursive: true });
+
+  const filesToCopy = ['index.html', 'styles.css', 'app.js', 'manifest.json'];
+  filesToCopy.forEach(file => {
+    const src = path.join(__dirname, file);
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, path.join(dir, file));
+    }
+  });
+
+  const assetsSrc = path.join(__dirname, 'assets');
+  const assetsDest = path.join(dir, 'assets');
+  if (fs.existsSync(assetsSrc)) {
+    fs.cpSync(assetsSrc, assetsDest, { recursive: true });
+  }
+  console.log(`Copied all files and assets -> ${path.basename(dir)}/`);
 });
 
-// Copy assets folder
-const assetsSrc = path.join(__dirname, 'assets');
-const assetsDest = path.join(wwwDir, 'assets');
-if (fs.existsSync(assetsSrc)) {
-  fs.cpSync(assetsSrc, assetsDest, { recursive: true });
-  console.log('Copied assets/ -> www/assets/');
-}
-
-console.log('✅ Build complete! All assets bundled to www/');
+console.log('✅ Build complete! All assets bundled to www/ and public/');
