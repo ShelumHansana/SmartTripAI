@@ -79,6 +79,14 @@
   margin: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important;  /* IE and Edge */
+}
+
+*::-webkit-scrollbar {
+  display: none !important; /* Chrome, Safari, Opera */
+  width: 0 !important;
+  height: 0 !important;
 }
 
 html, body {
@@ -86,6 +94,8 @@ html, body {
   height: 100dvh;
   width: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-overscroll-behavior: none;
 }
 
 body {
@@ -494,18 +504,7 @@ body.native-app .app-bar {
   -webkit-overflow-scrolling: touch;
   position: relative;
   background: var(--bg-app);
-}
-
-/* Custom Scrollbar */
-.screen-viewport::-webkit-scrollbar {
-  width: 5px;
-}
-.screen-viewport::-webkit-scrollbar-track {
-  background: transparent;
-}
-.screen-viewport::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 10px;
+  overscroll-behavior-y: contain;
 }
 
 .screen {
