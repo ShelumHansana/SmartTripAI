@@ -211,21 +211,24 @@ h1, h2, h3, h4, h5, h6 {
    4. APP VIEWPORT & MOBILE DEVICE FRAME
    -------------------------------------------------------------------------- */
 .app-viewport {
-  min-height: calc(100vh - 60px);
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 24px;
+  padding: 16px;
   background: var(--bg-app);
+  box-sizing: border-box;
 }
 
-/* Mode: Mobile Frame View */
+/* Mode: Mobile Frame View (Desktop Simulator) */
 body.mode-frame .mobile-frame {
-  width: 412px;
-  height: 846px;
+  width: min(100%, 420px);
+  height: min(880px, 94vh);
+  max-height: 100dvh;
   background: var(--bg-surface);
-  border-radius: 48px;
-  box-shadow: 0 25px 60px -12px rgba(15, 23, 42, 0.35), 0 0 0 12px #1E293B;
+  border-radius: 44px;
+  box-shadow: 0 25px 60px -12px rgba(15, 23, 42, 0.35), 0 0 0 10px #1E293B;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -241,7 +244,9 @@ body.mode-fullscreen .app-viewport {
 
 body.mode-fullscreen .mobile-frame {
   width: 100%;
+  max-width: 100%;
   height: calc(100vh - 60px);
+  height: calc(100dvh - 60px);
   border-radius: 0;
   box-shadow: none;
   border: none;
@@ -256,6 +261,7 @@ body.native-app {
   padding: 0;
   margin: 0;
   height: 100%;
+  width: 100%;
   overflow: hidden;
 }
 
@@ -265,18 +271,22 @@ body.native-app .simulator-bar {
 
 body.native-app .app-viewport {
   min-height: 100vh;
+  min-height: 100dvh;
   height: 100vh;
   height: 100dvh;
   padding: 0;
+  margin: 0;
+  width: 100%;
 }
 
 body.native-app .mobile-frame {
-  width: 100%;
-  height: 100vh;
-  height: 100dvh;
-  border-radius: 0;
-  box-shadow: none;
-  border: none;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
 body.native-app .phone-header {
@@ -288,12 +298,13 @@ body.native-app .home-indicator {
 }
 
 body.native-app .bottom-tab-bar {
-  padding-bottom: env(safe-area-inset-bottom, 8px);
-  height: calc(64px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
+  height: auto;
+  min-height: calc(58px + env(safe-area-inset-bottom, 0px));
 }
 
 body.native-app .app-bar {
-  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
 }
 
 /* Dynamic Island Notch & Phone Header */
@@ -1705,32 +1716,51 @@ input[type="range"] {
   display: flex;
   align-items: center;
   justify-content: space-around;
-  height: 64px;
+  width: 100%;
+  min-height: 60px;
+  height: auto;
   background: var(--bg-glass);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid var(--bg-glass-border);
   position: relative;
   z-index: 50;
   flex-shrink: 0;
+  padding: 4px 6px;
+  box-sizing: border-box;
 }
 
 .tab-item {
+  flex: 1 1 0;
+  min-width: 0;
   background: transparent;
   border: none;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
+  justify-content: center;
+  gap: 2px;
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: clamp(0.6rem, 2.2vw, 0.7rem);
   font-weight: 600;
   cursor: pointer;
   transition: var(--transition-fast);
-  padding: 4px 8px;
+  padding: 4px 2px;
+  overflow: hidden;
 }
 
 .tab-item i {
-  font-size: 1.1rem;
+  font-size: clamp(1rem, 3.2vw, 1.15rem);
+}
+
+.tab-item span {
+  display: block;
+  width: 100%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 .tab-item:hover, .tab-item.active {
@@ -1747,15 +1777,15 @@ input[type="range"] {
 }
 
 .hud-tab-icon {
-  width: 40px;
-  height: 40px;
+  width: clamp(34px, 9vw, 40px);
+  height: clamp(34px, 9vw, 40px);
   background: var(--primary-gradient);
   color: #FFFFFF;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: -16px;
+  margin-top: -14px;
   box-shadow: 0 6px 16px rgba(26, 92, 255, 0.4);
 }
 
@@ -1764,7 +1794,7 @@ input[type="range"] {
 }
 
 .home-indicator {
-  height: 18px;
+  height: 16px;
   background: var(--bg-surface);
   display: flex;
   justify-content: center;
@@ -2247,4 +2277,110 @@ button {
   transform: translateY(-1px);
   box-shadow: 0 8px 24px rgba(66, 133, 244, 0.5);
 }
+
+/* --------------------------------------------------------------------------
+   27. RESPONSIVE DESIGN & ADAPTIVE DISPLAY SYSTEM
+   -------------------------------------------------------------------------- */
+
+/* Small Tablets & Mobile Devices (<= 768px) */
+@media (max-width: 768px) {
+  .simulator-bar {
+    display: none !important;
+  }
+
+  .app-viewport {
+    padding: 0 !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    width: 100% !important;
+  }
+
+  body.mode-frame .mobile-frame,
+  .mobile-frame {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .phone-header {
+    display: none !important;
+  }
+
+  .home-indicator {
+    display: none !important;
+  }
+
+  .bottom-tab-bar {
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
+  }
+
+  .app-bar {
+    padding-top: max(12px, env(safe-area-inset-top, 0px));
+  }
+}
+
+/* Compact Smartphones (<= 420px) */
+@media (max-width: 420px) {
+  .screen-content {
+    padding: 12px;
+  }
+
+  .group-breakdown-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+  }
+
+  .breakdown-item {
+    padding: 6px 4px;
+  }
+
+  .b-label {
+    font-size: 0.65rem;
+  }
+
+  .card {
+    padding: 12px;
+  }
+
+  .hero-title {
+    font-size: 1.35rem;
+  }
+
+  .segment-btn {
+    padding: 6px 4px;
+    font-size: 0.72rem;
+  }
+
+  .tab-item {
+    padding: 2px 1px;
+    font-size: 0.62rem;
+  }
+
+  .modal-card {
+    padding: 16px;
+    border-radius: var(--radius-lg);
+  }
+}
+
+/* Extra Compact Phones / Foldables (<= 350px) */
+@media (max-width: 350px) {
+  .tab-item span {
+    font-size: 0.55rem;
+  }
+  
+  .tab-item i {
+    font-size: 0.95rem;
+  }
+
+  .group-breakdown-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 
