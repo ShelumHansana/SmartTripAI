@@ -81,12 +81,18 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html, body {
+  height: 100%;
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+}
+
 body {
   font-family: var(--font-main);
   background-color: var(--bg-app);
   color: var(--text-main);
   line-height: 1.5;
-  overflow-x: hidden;
   transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
@@ -211,21 +217,24 @@ h1, h2, h3, h4, h5, h6 {
    4. APP VIEWPORT & MOBILE DEVICE FRAME
    -------------------------------------------------------------------------- */
 .app-viewport {
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 16px;
   background: var(--bg-app);
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* Mode: Mobile Frame View (Desktop Simulator) */
 body.mode-frame .mobile-frame {
   width: min(100%, 420px);
-  height: min(880px, 94vh);
-  max-height: 100dvh;
+  height: min(880px, 100%);
+  max-height: 100%;
   background: var(--bg-surface);
   border-radius: 44px;
   box-shadow: 0 25px 60px -12px rgba(15, 23, 42, 0.35), 0 0 0 10px #1E293B;
@@ -235,6 +244,7 @@ body.mode-frame .mobile-frame {
   overflow: hidden;
   border: 4px solid #334155;
   transition: var(--transition-normal);
+  min-height: 0;
 }
 
 /* Mode: Full Screen View (Toggle) */
@@ -245,11 +255,11 @@ body.mode-fullscreen .app-viewport {
 body.mode-fullscreen .mobile-frame {
   width: 100%;
   max-width: 100%;
-  height: calc(100vh - 60px);
-  height: calc(100dvh - 60px);
+  height: 100%;
   border-radius: 0;
   box-shadow: none;
   border: none;
+  min-height: 0;
 }
 
 body.mode-fullscreen .phone-header {
@@ -478,8 +488,10 @@ body.native-app .app-bar {
    6. SCREEN STACK & VIEWPORT
    -------------------------------------------------------------------------- */
 .screen-viewport {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   position: relative;
   background: var(--bg-app);
 }
@@ -2290,11 +2302,12 @@ button {
 
   .app-viewport {
     padding: 0 !important;
-    min-height: 100vh !important;
-    min-height: 100dvh !important;
+    margin: 0 !important;
     height: 100vh !important;
     height: 100dvh !important;
+    max-height: 100dvh !important;
     width: 100% !important;
+    overflow: hidden !important;
   }
 
   body.mode-frame .mobile-frame,
@@ -2303,9 +2316,12 @@ button {
     max-width: 100% !important;
     height: 100vh !important;
     height: 100dvh !important;
+    max-height: 100dvh !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     border: none !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
   }
 
   .phone-header {
@@ -2316,19 +2332,92 @@ button {
     display: none !important;
   }
 
-  .bottom-tab-bar {
-    padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
+  .app-bar {
+    padding: 8px 12px;
+    padding-top: max(8px, env(safe-area-inset-top, 0px));
   }
 
-  .app-bar {
-    padding-top: max(12px, env(safe-area-inset-top, 0px));
+  .app-branding {
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .app-logo {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .app-name {
+    font-size: 1.05rem;
+    white-space: nowrap;
+  }
+
+  .app-subtitle {
+    font-size: 0.65rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    max-width: 130px;
+  }
+
+  .app-actions {
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .icon-btn, .avatar-badge {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+
+  .bottom-tab-bar {
+    padding-bottom: max(6px, env(safe-area-inset-bottom, 6px));
+    min-height: 56px;
+    flex-shrink: 0;
   }
 }
 
-/* Compact Smartphones (<= 420px) */
+/* Compact Smartphones (<= 420px) like Samsung A01, iPhone SE */
 @media (max-width: 420px) {
   .screen-content {
-    padding: 12px;
+    padding: 10px;
+  }
+
+  .onboarding-hero {
+    padding: 6px 0 10px 0;
+  }
+
+  .hero-chip {
+    font-size: 0.68rem;
+    padding: 3px 8px;
+  }
+
+  .hero-title {
+    font-size: 1.2rem;
+    margin: 4px 0;
+  }
+
+  .hero-subtext {
+    font-size: 0.75rem;
+  }
+
+  .card {
+    padding: 10px;
+    border-radius: var(--radius-md);
+  }
+
+  .form-group {
+    margin-bottom: 10px;
+  }
+
+  .form-label {
+    font-size: 0.74rem;
+    margin-bottom: 4px;
   }
 
   .group-breakdown-grid {
@@ -2337,33 +2426,119 @@ button {
   }
 
   .breakdown-item {
-    padding: 6px 4px;
+    padding: 6px 3px;
   }
 
   .b-label {
-    font-size: 0.65rem;
-  }
-
-  .card {
-    padding: 12px;
-  }
-
-  .hero-title {
-    font-size: 1.35rem;
+    font-size: 0.64rem;
   }
 
   .segment-btn {
-    padding: 6px 4px;
+    padding: 6px 2px;
+    font-size: 0.68rem;
+  }
+
+  .tag-pill {
+    padding: 4px 8px;
     font-size: 0.72rem;
+  }
+
+  .pill-chip {
+    padding: 3px 8px;
+    font-size: 0.7rem;
+  }
+
+  .stats-grid {
+    gap: 6px;
+  }
+
+  .stat-card {
+    padding: 8px 6px;
+  }
+
+  .stat-val {
+    font-size: 0.78rem;
+  }
+
+  .stat-label {
+    font-size: 0.6rem;
+  }
+
+  .timeline-card {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .t-thumb {
+    width: 65px;
+    height: 65px;
+  }
+
+  .t-title {
+    font-size: 0.84rem;
+  }
+
+  .t-meta, .t-ai-tip {
+    font-size: 0.65rem;
+  }
+
+  .vehicle-hero-flex {
+    gap: 8px;
+  }
+
+  .vehicle-img {
+    width: 80px;
+    height: 65px;
+  }
+
+  .stay-card {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .stay-img {
+    width: 75px;
+    height: 75px;
+  }
+
+  .stay-title {
+    font-size: 0.82rem;
+  }
+
+  .stay-price {
+    font-size: 0.78rem;
+  }
+
+  .chart-flex-wrapper {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .chart-canvas-box {
+    width: 130px;
+    height: 130px;
+  }
+
+  .chart-legend-box {
+    width: 100%;
+  }
+
+  .hud-emergency-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
   }
 
   .tab-item {
     padding: 2px 1px;
-    font-size: 0.62rem;
+  }
+
+  .tab-item span {
+    font-size: 0.58rem;
   }
 
   .modal-card {
-    padding: 16px;
+    padding: 14px;
     border-radius: var(--radius-lg);
   }
 }
@@ -2371,16 +2546,21 @@ button {
 /* Extra Compact Phones / Foldables (<= 350px) */
 @media (max-width: 350px) {
   .tab-item span {
-    font-size: 0.55rem;
+    font-size: 0.52rem;
   }
   
   .tab-item i {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
   }
 
   .group-breakdown-grid {
     grid-template-columns: 1fr;
   }
+
+  .app-subtitle {
+    display: none !important;
+  }
 }
+
 
 
