@@ -1,5 +1,6 @@
 {
   "buildCommand": "node build.js",
   "outputDirectory": "public",
+  "installCommand": "echo 'No dependencies needed for web build'",
   "framework": null
 }
