@@ -500,8 +500,8 @@ body.native-app .app-bar {
 .screen-viewport {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden !important;
-  overscroll-behavior: none !important;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   position: relative;
   background: var(--bg-app);
   scrollbar-width: none;
@@ -516,16 +516,12 @@ body.native-app .app-bar {
 
 .screen {
   display: none;
-  height: 100%;
-  overflow: hidden !important;
-  animation: fadeIn 0.25s ease-in-out;
+  min-height: 100%;
+  animation: fadeIn 0.3s ease-in-out;
 }
 
 .screen.active {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden !important;
+  display: block;
 }
 
 @keyframes fadeIn {
@@ -534,12 +530,7 @@ body.native-app .app-bar {
 }
 
 .screen-content {
-  padding: 12px 14px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden !important;
-  box-sizing: border-box;
+  padding: 16px;
 }
 
 .p-0 { padding: 0 !important; }
@@ -915,45 +906,36 @@ body.native-app .app-bar {
    8. SCREEN 1: ONBOARDING & SETUP
    -------------------------------------------------------------------------- */
 .onboarding-hero {
-  margin-bottom: 8px;
+  margin-bottom: 16px;
 }
 
 .hero-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: var(--radius-full);
   background: var(--secondary-light);
   color: var(--secondary);
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .hero-title {
-  font-size: 1.18rem;
-  line-height: 1.2;
-  margin-bottom: 4px;
+  font-size: 1.4rem;
+  line-height: 1.25;
+  margin-bottom: 6px;
   color: var(--text-main);
 }
 
 .hero-subtext {
-  font-size: 0.74rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
 }
 
 .input-card-engine {
-  margin-bottom: 8px;
-}
-
-.setup-step {
-  display: none;
-  animation: fadeIn 0.25s ease-in-out;
-}
-
-.setup-step.active {
-  display: block;
+  margin-bottom: 24px;
 }
 
 /* --------------------------------------------------------------------------

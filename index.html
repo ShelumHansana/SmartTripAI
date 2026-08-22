@@ -116,18 +116,18 @@
               <p class="hero-subtext">Enter parameters below to let SmartTripAI craft a route-optimized, personalized itinerary.</p>
             </div>
 
-            <!-- Input Card Engine (Step 1 of 2: Route & Group) -->
-            <div class="card glass-card input-card-engine setup-step active" id="setupStep1">
+            <!-- Input Card Engine -->
+            <div class="card glass-card input-card-engine">
               <div class="card-header">
-                <h3><i class="fa-solid fa-route text-primary"></i> 1. Route & Dates</h3>
+                <h3><i class="fa-solid fa-sliders text-primary"></i> Trip Parameters</h3>
                 <span class="badge badge-primary">Step 1 of 2</span>
               </div>
 
               <!-- Start Point (Origin) -->
               <div class="form-group">
-                <label class="form-label"><i class="fa-solid fa-circle-dot text-primary"></i> Origin</label>
+                <label class="form-label"><i class="fa-solid fa-circle-dot text-primary"></i> Origin (Start Point)</label>
                 <div class="input-with-action">
-                  <input type="text" id="originInput" class="form-control" value="Colombo, Sri Lanka" placeholder="Starting location...">
+                  <input type="text" id="originInput" class="form-control" value="Colombo, Sri Lanka" placeholder="Search starting city or address...">
                   <button class="input-action-btn" onclick="detectGPSLocation()" title="Detect current GPS">
                     <i class="fa-solid fa-location-crosshairs"></i> GPS
                   </button>
@@ -137,13 +137,15 @@
               <!-- Destination Point -->
               <div class="form-group">
                 <label class="form-label"><i class="fa-solid fa-location-dot text-secondary"></i> Destination</label>
-                <input type="text" id="destInput" class="form-control" value="Kandy & Ella, Sri Lanka" placeholder="Where to explore?">
+                <input type="text" id="destInput" class="form-control" value="Kandy & Ella, Sri Lanka" placeholder="Where do you want to explore?">
                 
                 <!-- Quick Destination Suggestions -->
-                <div class="pill-group mt-1">
+                <div class="pill-group mt-2">
+                  <span class="pill-title">Popular:</span>
                   <button class="pill-chip" onclick="setDestination('Kandy & Ella, Sri Lanka')">🇱🇰 Kandy & Ella</button>
                   <button class="pill-chip" onclick="setDestination('Kyoto & Nara, Japan')">🇯🇵 Kyoto</button>
-                  <button class="pill-chip" onclick="setDestination('Interlaken, Switzerland')">🇨🇭 Swiss</button>
+                  <button class="pill-chip" onclick="setDestination('Interlaken, Switzerland')">🇨🇭 Swiss Alps</button>
+                  <button class="pill-chip" onclick="setDestination('Amalfi Coast, Italy')">🇮🇹 Amalfi</button>
                 </div>
               </div>
 
@@ -159,14 +161,14 @@
                 </div>
 
                 <div class="form-group flex-1">
-                  <label class="form-label"><i class="fa-regular fa-clock"></i> Date</label>
+                  <label class="form-label"><i class="fa-regular fa-clock"></i> Start Date</label>
                   <input type="date" id="startDateInput" class="form-control" value="2026-08-15">
                 </div>
               </div>
 
               <!-- Group Size Breakdown -->
               <div class="form-group">
-                <label class="form-label"><i class="fa-solid fa-users"></i> Travelers</label>
+                <label class="form-label"><i class="fa-solid fa-users"></i> Travelers Breakdown</label>
                 <div class="group-breakdown-grid">
                   <div class="breakdown-item">
                     <span class="b-label"><i class="fa-solid fa-user"></i> Adults</span>
@@ -195,31 +197,18 @@
                 </div>
               </div>
 
-              <!-- Step 1 Next Button -->
-              <button class="btn btn-primary btn-block mt-2 shine-effect" onclick="goToSetupStep(2)">
-                <span>Next: Preferences & Style</span> <i class="fa-solid fa-arrow-right"></i>
-              </button>
-            </div>
-
-            <!-- Input Card Engine (Step 2 of 2: Preferences & Style) -->
-            <div class="card glass-card input-card-engine setup-step" id="setupStep2">
-              <div class="card-header">
-                <h3><i class="fa-solid fa-sliders text-secondary"></i> 2. Budget & Style</h3>
-                <span class="badge badge-secondary">Step 2 of 2</span>
-              </div>
-
               <!-- Preferences: Budget Level -->
               <div class="form-group">
                 <label class="form-label"><i class="fa-solid fa-wallet"></i> Budget Level</label>
                 <div class="segment-control" id="budgetSegment">
                   <button class="segment-btn" data-value="economy" onclick="selectSegment('budgetSegment', this)">
-                    💵 Economy
+                    <span class="s-icon">💵</span> Economy
                   </button>
                   <button class="segment-btn active" data-value="mid" onclick="selectSegment('budgetSegment', this)">
-                    💳 Mid-Range
+                    <span class="s-icon">💳</span> Mid-Range
                   </button>
                   <button class="segment-btn" data-value="luxury" onclick="selectSegment('budgetSegment', this)">
-                    💎 Luxury
+                    <span class="s-icon">💎</span> Luxury
                   </button>
                 </div>
               </div>
@@ -242,26 +231,22 @@
 
               <!-- Preferences: Trip Vibe (Multi Select) -->
               <div class="form-group">
-                <label class="form-label"><i class="fa-solid fa-compass-drafting"></i> Trip Vibe</label>
+                <label class="form-label"><i class="fa-solid fa-compass-drafting"></i> Trip Vibe & Interests</label>
                 <div class="tag-selector" id="vibeTags">
-                  <button class="tag-pill active" onclick="toggleVibeTag(this)">🌲 Nature</button>
-                  <button class="tag-pill active" onclick="toggleVibeTag(this)">⛩️ Culture</button>
-                  <button class="tag-pill active" onclick="toggleVibeTag(this)">🍜 Food</button>
-                  <button class="tag-pill" onclick="toggleVibeTag(this)">🧗‍♂️ Hiking</button>
-                  <button class="tag-pill" onclick="toggleVibeTag(this)">🏖️ Beach</button>
-                  <button class="tag-pill" onclick="toggleVibeTag(this)">📸 Photos</button>
+                  <button class="tag-pill active" onclick="toggleVibeTag(this)">🌲 Nature & Wildlife</button>
+                  <button class="tag-pill active" onclick="toggleVibeTag(this)">⛩️ Culture & Heritage</button>
+                  <button class="tag-pill active" onclick="toggleVibeTag(this)">🍜 Culinary & Dining</button>
+                  <button class="tag-pill" onclick="toggleVibeTag(this)">🧗‍♂️ Adventure & Hiking</button>
+                  <button class="tag-pill" onclick="toggleVibeTag(this)">🏖️ Coastal & Beach</button>
+                  <button class="tag-pill" onclick="toggleVibeTag(this)">📸 Photography Spots</button>
                 </div>
               </div>
 
-              <!-- Step 2 Navigation Buttons -->
-              <div class="form-row mt-2">
-                <button class="btn btn-outline" style="flex: 0 0 80px;" onclick="goToSetupStep(1)">
-                  <i class="fa-solid fa-arrow-left"></i> Back
-                </button>
-                <button class="btn btn-primary flex-1 shine-effect" onclick="generateAIItinerary()">
-                  <span>Generate Itinerary</span> <i class="fa-solid fa-wand-magic-sparkles"></i>
-                </button>
-              </div>
+              <!-- Primary CTA -->
+              <button class="btn btn-primary btn-block btn-lg mt-3 shine-effect" onclick="generateAIItinerary()">
+                <span>Generate AI Itinerary</span> <i class="fa-solid fa-wand-magic-sparkles"></i>
+              </button>
+
             </div>
 
           </div>
