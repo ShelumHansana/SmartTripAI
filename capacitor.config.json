@@ -4,6 +4,10 @@
   "webDir": "www",
   "server": {
     "url": "https://smarttrip-ai.vercel.app",
-    "cleartext": true
+    "cleartext": true,
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
   }
 }
