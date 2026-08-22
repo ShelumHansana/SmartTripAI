@@ -3,7 +3,7 @@
   "appName": "SmartTripAI",
   "webDir": "www",
   "server": {
-    "url": "http://192.168.8.100:3000",
+    "url": "https://smarttripai-seven.vercel.app/",
     "cleartext": true
   },
   "android": {
