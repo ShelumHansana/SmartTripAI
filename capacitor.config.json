@@ -3,8 +3,6 @@
   "appName": "SmartTripAI",
   "webDir": "www",
   "server": {
-    "url": "https://smarttrip-ai.vercel.app",
-    "cleartext": true,
     "androidScheme": "https"
   },
   "android": {
