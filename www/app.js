@@ -415,6 +415,20 @@ function setupEventListeners() {
   };
 }
 
+// Setup Step Switcher (Step 1 & Step 2)
+function goToSetupStep(stepNum) {
+  const step1 = document.getElementById('setupStep1');
+  const step2 = document.getElementById('setupStep2');
+  if (!step1 || !step2) return;
+  if (stepNum === 1) {
+    step1.classList.add('active');
+    step2.classList.remove('active');
+  } else {
+    step1.classList.remove('active');
+    step2.classList.add('active');
+  }
+}
+
 // --------------------------------------------------------------------------
 // 3. SCREEN ROUTING & VIEW CONTROLS
 // --------------------------------------------------------------------------
