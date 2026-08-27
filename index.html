@@ -486,6 +486,26 @@
             <p class="profile-email">smarttripai@demo.app</p>
           </div>
 
+          <!-- Settings: AI Intelligence -->
+          <div class="settings-group">
+            <div class="settings-group-title">AI Engine</div>
+            <div class="settings-list">
+              <div class="settings-item" onclick="openGeminiApiKeyModal()">
+                <div class="settings-item-left">
+                  <div class="settings-item-icon" style="background: var(--primary-gradient); color: #fff;"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                  <div>
+                    <span class="settings-item-label" style="display:block;">Google Gemini API</span>
+                    <span class="text-xs text-muted" id="geminiApiStatusText">Demo Generator Mode</span>
+                  </div>
+                </div>
+                <div class="settings-item-right">
+                  <span class="badge badge-primary" id="geminiApiBadge">Configure</span>
+                  <i class="fa-solid fa-chevron-right"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Settings: Appearance -->
           <div class="settings-group">
             <div class="settings-group-title">Appearance</div>
@@ -564,7 +584,7 @@
                   <span class="settings-item-label">SmartTripAI v1.0</span>
                 </div>
                 <div class="settings-item-right">
-                  <span>AI Travel Companion</span>
+                  <span>Powered by Gemini AI</span>
                 </div>
               </div>
             </div>
@@ -600,8 +620,56 @@
   </div><!-- End App Shell -->
 
   <!-- ============================================ -->
+  <!-- TOAST NOTIFICATIONS CONTAINER               -->
+  <!-- ============================================ -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ============================================ -->
+  <!-- AI LOADING OVERLAY                          -->
+  <!-- ============================================ -->
+  <div class="ai-loading-overlay" id="aiLoadingOverlay">
+    <div class="ai-loading-card">
+      <div class="ai-pulse-sphere">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+      </div>
+      <h3 class="ai-loading-title">Gemini AI Routing</h3>
+      <p class="ai-loading-status" id="aiLoadingStatus">Analyzing destination & timing...</p>
+      <div class="ai-progress-bar">
+        <div class="ai-progress-fill"></div>
+      </div>
+      <span class="text-xs text-muted mt-3">Personalizing stops, coordinates & budget...</span>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
   <!-- MODALS                                       -->
   <!-- ============================================ -->
+
+  <!-- Google Gemini API Key Modal -->
+  <div class="modal-backdrop" id="geminiApiKeyModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="fa-solid fa-key text-primary-c"></i> Google Gemini API</h3>
+        <button class="modal-close" onclick="closeModal('geminiApiKeyModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-sm text-muted mb-3">
+          Enter your free Google Gemini API Key to enable real-time worldwide AI trip generation and live travel assistant queries.
+        </p>
+        <div class="form-group">
+          <label class="form-label"><i class="fa-solid fa-shield-halved"></i> API Key</label>
+          <input type="password" id="geminiApiKeyInput" class="form-control" placeholder="AIzaSy...">
+          <span class="text-xs text-muted mt-1" style="display: block;">
+            Get a free key from <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--primary); font-weight:600; text-decoration:underline;">Google AI Studio</a>. Saved locally on your device.
+          </span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="removeGeminiApiKey()">Clear Key</button>
+        <button class="btn btn-primary" onclick="saveGeminiApiKey()">Save Key</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Add Custom Stop Modal -->
   <div class="modal-backdrop" id="addStopModal">
@@ -687,26 +755,45 @@
     </div>
   </div>
 
-  <!-- Voice Modal -->
+  <!-- AI Voice & Chat Modal -->
   <div class="modal-backdrop" id="voiceModal">
-    <div class="modal-card text-center">
+    <div class="modal-card">
       <div class="modal-header">
-        <h3 class="modal-title"><i class="fa-solid fa-microphone text-primary-c"></i> AI Assistant</h3>
+        <h3 class="modal-title"><i class="fa-solid fa-wand-magic-sparkles text-primary-c"></i> SmartTrip AI Guide</h3>
         <button class="modal-close" onclick="closeModal('voiceModal')">&times;</button>
       </div>
-      <div class="modal-body" style="padding: 24px 20px;">
-        <div class="voice-animation">
+      <div class="modal-body text-center" style="padding: 20px;">
+        <div class="voice-animation" id="voiceWaveAnimation">
           <div class="voice-bar"></div>
           <div class="voice-bar"></div>
           <div class="voice-bar"></div>
           <div class="voice-bar"></div>
           <div class="voice-bar"></div>
         </div>
-        <h4 style="margin-top: 16px; font-size: 16px;">Listening...</h4>
-        <p class="text-sm text-muted mt-2">Try: "Find organic tea cafes near Kandy"</p>
+
+        <div class="ai-float-tip" style="position: relative; inset: auto; margin-top: 12px; text-align: left;" id="aiAssistantResponseBox">
+          <div class="ai-tip-icon"><i class="fa-solid fa-robot"></i></div>
+          <div class="ai-tip-text" id="aiAssistantBubbleText">
+            "Ask me anything about your route, culture tips, secret spots, or weather updates!"
+          </div>
+        </div>
+
+        <!-- Quick AI Query Prompts -->
+        <div class="chip-group justify-content-center mt-3" style="justify-content: center;">
+          <button class="chip" onclick="askAiQuery('Tell me the history and cultural tips for this trip')">📜 History & Culture</button>
+          <button class="chip" onclick="askAiQuery('What are the best food specialties to try?')">🍜 Food Specialties</button>
+          <button class="chip" onclick="askAiQuery('What should I pack for this trip?')">🎒 Packing Tips</button>
+        </div>
+
+        <!-- Chat Input Field -->
+        <div class="assistant-chat-box">
+          <input type="text" id="assistantUserInput" class="assistant-input" placeholder="Ask AI Guide anything..." onkeypress="if(event.key==='Enter') submitAiQuery()">
+          <button class="btn btn-primary btn-sm" onclick="submitAiQuery()"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-outline btn-block" onclick="closeModal('voiceModal')">Cancel</button>
+        <button class="btn btn-outline" id="speakAudioBtn" onclick="toggleAssistantSpeech()"><i class="fa-solid fa-volume-high"></i> Listen</button>
+        <button class="btn btn-ghost" onclick="closeModal('voiceModal')">Close</button>
       </div>
     </div>
   </div>

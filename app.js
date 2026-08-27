@@ -1,11 +1,11 @@
 /* ==========================================================================
-   SMARTTRIPAI — REDESIGNED APPLICATION ENGINE
+   SMARTTRIPAI — APPLICATION ENGINE (POWERED BY GOOGLE GEMINI AI)
    Clean, user-friendly 4-screen flow:
    Home (wizard) → Plan (consolidated) → Explore (map) → Profile
    ========================================================================== */
 
 // --------------------------------------------------------------------------
-// 1. TRIP PRESET DATA (unchanged from original)
+// 1. TRIP PRESET DATA (FALLBACK / DEMO DATASETS)
 // --------------------------------------------------------------------------
 const TRIP_PRESETS = {
   srilanka: {
@@ -131,8 +131,11 @@ const TRIP_PRESETS = {
 };
 
 // --------------------------------------------------------------------------
-// 2. GLOBAL STATE
+// 2. GLOBAL STATE & CONFIG
 // --------------------------------------------------------------------------
+const STORAGE_KEY_GEMINI = 'smarttrip_gemini_api_key';
+const GEMINI_MODEL = 'gemini-1.5-flash';
+
 let state = {
   presetKey: 'srilanka',
   data: JSON.parse(JSON.stringify(TRIP_PRESETS.srilanka)),
@@ -143,7 +146,8 @@ let state = {
   budgetMultiplier: 1.0,
   mapInstance: null,
   chartInstance: null,
-  voicePlaying: false
+  voicePlaying: false,
+  lastAssistantSpeech: ""
 };
 
 const VEHICLE_OPTIONS = [
@@ -162,10 +166,11 @@ const MAP_LAYERS = {
 let activeMapLayer = null;
 
 // --------------------------------------------------------------------------
-// 3. INITIALIZATION
+// 3. INITIALIZATION & STORAGE
 // --------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
   updateGreeting();
+  updateGeminiStatusUI();
   loadPreset('srilanka');
 });
 
@@ -178,8 +183,95 @@ function updateGreeting() {
   if (el) el.textContent = greeting + ' 👋';
 }
 
+function getGeminiApiKey() {
+  return localStorage.getItem(STORAGE_KEY_GEMINI) || '';
+}
+
+function setGeminiApiKey(key) {
+  if (key && key.trim()) {
+    localStorage.setItem(STORAGE_KEY_GEMINI, key.trim());
+  } else {
+    localStorage.removeItem(STORAGE_KEY_GEMINI);
+  }
+  updateGeminiStatusUI();
+}
+
+function hasGeminiApiKey() {
+  const key = getGeminiApiKey();
+  return Boolean(key && key.length > 10);
+}
+
+function updateGeminiStatusUI() {
+  const statusText = document.getElementById('geminiApiStatusText');
+  const badge = document.getElementById('geminiApiBadge');
+  const input = document.getElementById('geminiApiKeyInput');
+  const hasKey = hasGeminiApiKey();
+
+  if (statusText && badge) {
+    if (hasKey) {
+      statusText.textContent = `Connected · ${GEMINI_MODEL}`;
+      badge.textContent = 'Active';
+      badge.className = 'badge badge-emerald';
+    } else {
+      statusText.textContent = 'Demo Generator Mode';
+      badge.textContent = 'Configure';
+      badge.className = 'badge badge-primary';
+    }
+  }
+
+  if (input) {
+    input.value = getGeminiApiKey();
+  }
+}
+
+function openGeminiApiKeyModal() {
+  const input = document.getElementById('geminiApiKeyInput');
+  if (input) input.value = getGeminiApiKey();
+  document.getElementById('geminiApiKeyModal').classList.add('active');
+}
+
+function saveGeminiApiKey() {
+  const input = document.getElementById('geminiApiKeyInput');
+  const val = input ? input.value : '';
+  if (!val.trim()) {
+    showToast("Please enter a valid Gemini API Key", "warning");
+    return;
+  }
+  setGeminiApiKey(val);
+  closeModal('geminiApiKeyModal');
+  showToast("✨ Google Gemini API Key saved successfully!", "success");
+}
+
+function removeGeminiApiKey() {
+  setGeminiApiKey('');
+  closeModal('geminiApiKeyModal');
+  showToast("Gemini API Key removed. Using Demo Generator.", "info");
+}
+
 // --------------------------------------------------------------------------
-// 4. SCREEN NAVIGATION
+// 4. TOAST NOTIFICATIONS
+// --------------------------------------------------------------------------
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  const icon = type === 'success' ? 'fa-check-circle' : type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info';
+  toast.className = `toast-msg toast-${type}`;
+  toast.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-10px)';
+    toast.style.transition = 'all 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
+// --------------------------------------------------------------------------
+// 5. SCREEN NAVIGATION
 // --------------------------------------------------------------------------
 function switchScreen(screenId) {
   state.activeScreen = screenId;
@@ -192,16 +284,18 @@ function switchScreen(screenId) {
     tab.classList.toggle('active', tab.getAttribute('data-screen') === screenId);
   });
 
-  // Initialize map when Explore is first opened
-  if (screenId === 'screen-explore' && !state.mapInstance) {
-    setTimeout(initMap, 100);
-  } else if (screenId === 'screen-explore' && state.mapInstance) {
-    setTimeout(() => state.mapInstance.invalidateSize(), 200);
+  // Initialize or invalidate map when Explore is active
+  if (screenId === 'screen-explore') {
+    if (!state.mapInstance) {
+      setTimeout(initMap, 100);
+    } else {
+      setTimeout(() => state.mapInstance.invalidateSize(), 200);
+    }
   }
 }
 
 // --------------------------------------------------------------------------
-// 5. WIZARD FLOW
+// 6. WIZARD FLOW
 // --------------------------------------------------------------------------
 function wizardNext() {
   if (state.wizardStep >= 3) return;
@@ -218,13 +312,11 @@ function wizardPrev() {
 function updateWizardUI() {
   const step = state.wizardStep;
 
-  // Hide all steps, show current
   for (let i = 1; i <= 3; i++) {
     const stepEl = document.getElementById(`wizardStep${i}`);
     if (stepEl) stepEl.classList.toggle('active', i === step);
   }
 
-  // Update dots
   for (let i = 1; i <= 3; i++) {
     const dot = document.getElementById(`wDot${i}`);
     const label = document.getElementById(`wLabel${i}`);
@@ -246,7 +338,6 @@ function updateWizardUI() {
     }
   }
 
-  // Update lines
   const line1 = document.getElementById('wLine1');
   const line2 = document.getElementById('wLine2');
   if (line1) line1.classList.toggle('completed', step > 1);
@@ -254,7 +345,7 @@ function updateWizardUI() {
 }
 
 // --------------------------------------------------------------------------
-// 6. TRIP SETUP CONTROLS
+// 7. TRIP SETUP CONTROLS
 // --------------------------------------------------------------------------
 function detectGPSLocation() {
   const el = document.getElementById('originInput');
@@ -298,18 +389,196 @@ function toggleVibe(btn) {
 }
 
 // --------------------------------------------------------------------------
-// 7. GENERATE ITINERARY & LOAD PRESET
+// 8. GOOGLE GEMINI AI TRIP GENERATION ENGINE
 // --------------------------------------------------------------------------
-function generateAIItinerary() {
-  const origin = document.getElementById('originInput').value;
-  const dest = document.getElementById('destInput').value;
+async function generateAIItinerary() {
+  const origin = document.getElementById('originInput').value || "Colombo, Sri Lanka";
+  const dest = document.getElementById('destInput').value || "Kandy & Ella, Sri Lanka";
+  const days = state.data.days || 3;
+  const adults = state.data.adults || 2;
+  const kids = state.data.kids || 0;
+  const pets = state.data.pets || 0;
+  const budget = state.data.budget || 'mid';
+
+  // Gather active vibe tags
+  const activeVibes = [];
+  document.querySelectorAll('#vibeTags .vibe-tag.active').forEach(tag => {
+    activeVibes.push(tag.textContent.replace(/^[^\w]+/, '').trim());
+  });
+  const vibeString = activeVibes.join(', ') || "Scenic, Cultural, Culinary";
+
+  // Check if user has provided Gemini API key
+  if (hasGeminiApiKey()) {
+    const loadingOverlay = document.getElementById('aiLoadingOverlay');
+    const loadingStatus = document.getElementById('aiLoadingStatus');
+    if (loadingOverlay) loadingOverlay.classList.add('active');
+
+    try {
+      if (loadingStatus) loadingStatus.textContent = `Connecting to Google Gemini AI...`;
+
+      // Status rotation animation
+      const statusTimer = setInterval(() => {
+        const msgs = [
+          `Calculating driving distance & optimal routes...`,
+          `Finding authentic viewpoints & cultural sights for ${dest}...`,
+          `Curating top-rated stays & local cuisine...`,
+          `Estimating fuel consumption and budget breakdown...`
+        ];
+        if (loadingStatus) {
+          loadingStatus.textContent = msgs[Math.floor(Math.random() * msgs.length)];
+        }
+      }, 1500);
+
+      const generatedPlan = await callGeminiTripAPI(origin, dest, days, adults, kids, pets, budget, vibeString);
+      clearInterval(statusTimer);
+
+      if (generatedPlan && generatedPlan.daysData && generatedPlan.daysData.length) {
+        state.data = generatedPlan;
+        state.activeDay = 1;
+        showToast("✨ Google Gemini AI generated your customized itinerary!", "success");
+      } else {
+        throw new Error("Invalid format from Gemini");
+      }
+    } catch (err) {
+      console.warn("Gemini API call failed, falling back to local engine:", err);
+      showToast(`⚠️ Gemini: ${err.message || 'Error'}. Using Smart Template mode.`, "warning");
+      generateSmartLocalFallback(origin, dest, days, adults, kids, pets, budget);
+    } finally {
+      if (loadingOverlay) loadingOverlay.classList.remove('active');
+    }
+  } else {
+    // Demo Mode without API Key
+    showToast("💡 Pro-Tip: Add your free Gemini API key in Profile to plan worldwide trips!", "info");
+    generateSmartLocalFallback(origin, dest, days, adults, kids, pets, budget);
+  }
+
+  // Render newly prepared data across screens
+  renderPlanScreen();
+  renderExploreItems();
+  updateMapWithCurrentRoute();
+  switchScreen('screen-plan');
+}
+
+async function callGeminiTripAPI(origin, destination, days, adults, kids, pets, budget, vibes) {
+  const apiKey = getGeminiApiKey();
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+
+  const systemPrompt = `You are SmartTripAI, an expert travel route planner. Generate a detailed, highly accurate, and engaging travel itinerary JSON from ${origin} to ${destination} for ${days} days.
+Travelers: ${adults} Adults, ${kids} Kids, ${pets} Pets. Budget tier: ${budget}. Vibes: ${vibes}.
+
+Respond ONLY with a valid JSON object strictly matching this schema:
+{
+  "title": "${origin.split(',')[0]} → ${destination.split(',')[0]}",
+  "origin": "${origin}",
+  "destination": "${destination}",
+  "days": ${days},
+  "adults": ${adults},
+  "kids": ${kids},
+  "pets": ${pets},
+  "budget": "${budget}",
+  "heroImage": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80",
+  "distance": "e.g. 380 km",
+  "travelTime": "e.g. 6h 30m driving",
+  "baseCost": 580,
+  "vehicle": {
+    "name": "7-Seater Luxury SUV",
+    "type": "SUV / AWD",
+    "pricePerDay": 65,
+    "image": "assets/luxury_suv.png"
+  },
+  "daysData": [
+    {
+      "day": 1,
+      "title": "Day 1 Highlights",
+      "items": [
+        {
+          "id": "g1",
+          "time": "09:00 AM",
+          "title": "Specific Attraction / Viewpoint Name",
+          "category": "Nature | Culture | Food | Photography | Adventure",
+          "duration": "2h",
+          "fee": 15,
+          "image": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80",
+          "aiTip": "Practical local tip with emoji",
+          "hiddenGem": false,
+          "lat": 6.9271,
+          "lng": 79.8612
+        }
+      ]
+    }
+  ],
+  "stays": [
+    {
+      "id": "h1",
+      "name": "Real or curated Boutique Hotel/Resort Name",
+      "type": "hotel | villa | resort",
+      "price": 140,
+      "rating": 4.9,
+      "reviews": 340,
+      "offRoute": "0.4 km off route",
+      "image": "assets/boutique_villa.png",
+      "amenities": ["Pool", "Wi-Fi", "Mountain View", "Breakfast"]
+    }
+  ],
+  "dining": [
+    {
+      "id": "d1",
+      "time": "Breakfast | Lunch | Dinner",
+      "name": "Real restaurant / cafe name",
+      "specialty": "Authentic regional specialty dish",
+      "detour": "On route | 3 min detour",
+      "rating": 4.8,
+      "price": "$10-$20"
+    }
+  ]
+}
+
+Ensure all latitude/longitude (lat, lng) are geographically realistic for ${destination}. Include at least 2-3 stops per day, 2-3 stays, and 3 dining spots.`;
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: systemPrompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: 0.7
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+  }
+
+  const result = await response.json();
+  const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!rawText) throw new Error("Empty response from Gemini");
+
+  return JSON.parse(rawText);
+}
+
+function generateSmartLocalFallback(origin, dest, days, adults, kids, pets, budget) {
+  // Check if destination matches one of our known presets
+  const destLower = dest.toLowerCase();
+  let basePreset = TRIP_PRESETS.srilanka;
+
+  if (destLower.includes('japan') || destLower.includes('kyoto') || destLower.includes('tokyo')) {
+    basePreset = TRIP_PRESETS.japan;
+  } else if (destLower.includes('europe') || destLower.includes('swiss') || destLower.includes('paris') || destLower.includes('alps') || destLower.includes('amalfi')) {
+    basePreset = TRIP_PRESETS.europe;
+  }
+
+  state.data = JSON.parse(JSON.stringify(basePreset));
   state.data.origin = origin;
   state.data.destination = dest;
   state.data.title = `${origin.split(',')[0]} → ${dest.split(',')[0]}`;
-
-  renderPlanScreen();
-  renderExploreItems();
-  switchScreen('screen-plan');
+  state.data.days = days;
+  state.data.adults = adults;
+  state.data.kids = kids;
+  state.data.pets = pets;
+  state.data.budget = budget;
 }
 
 function loadPreset(key) {
@@ -325,7 +594,6 @@ function loadPreset(key) {
   document.getElementById('kidsCount').textContent = state.data.kids;
   document.getElementById('petsCount').textContent = state.data.pets;
 
-  // Set budget cards
   document.querySelectorAll('#budgetCards .style-card').forEach(c => {
     c.classList.toggle('active', c.getAttribute('data-value') === state.data.budget);
   });
@@ -334,6 +602,7 @@ function loadPreset(key) {
 
   renderPlanScreen();
   renderExploreItems();
+  updateMapWithCurrentRoute();
 }
 
 function loadAndGo(key) {
@@ -342,7 +611,7 @@ function loadAndGo(key) {
 }
 
 // --------------------------------------------------------------------------
-// 8. PLAN SCREEN RENDERING
+// 9. PLAN SCREEN RENDERING
 // --------------------------------------------------------------------------
 function renderPlanScreen() {
   const data = state.data;
@@ -350,7 +619,7 @@ function renderPlanScreen() {
 
   // Hero
   const heroImg = document.getElementById('heroDestImage');
-  if (heroImg) heroImg.src = data.heroImage;
+  if (heroImg) heroImg.src = data.heroImage || 'assets/hero_kandy.png';
 
   const heroTitle = document.getElementById('heroTripTitle');
   if (heroTitle) heroTitle.textContent = data.title;
@@ -360,21 +629,21 @@ function renderPlanScreen() {
     heroMeta.innerHTML = `
       <span><i class="fa-regular fa-calendar"></i> ${data.days} Days</span>
       <span><i class="fa-solid fa-user-group"></i> ${data.adults} Adults${data.kids ? `, ${data.kids} Kids` : ''}</span>
-      <span><i class="fa-solid fa-car-side"></i> ${data.distance}</span>
+      <span><i class="fa-solid fa-car-side"></i> ${data.distance || '340 km'}</span>
     `;
   }
 
   // Quick stats
-  document.getElementById('statDistance').textContent = data.distance;
-  const estCost = Math.round(data.baseCost * mult);
+  document.getElementById('statDistance').textContent = data.distance || '340 km';
+  const estCost = Math.round((data.baseCost || 540) * mult);
   document.getElementById('statCost').textContent = `~$${estCost}`;
-  document.getElementById('statVehicle').textContent = data.vehicle.name.split(' ').slice(-1)[0]; // last word
+  document.getElementById('statVehicle').textContent = (data.vehicle?.name || 'SUV').split(' ').slice(-1)[0];
 
-  // Day tabs
+  // Day tabs & timeline
   renderDayTabs();
-  switchDayTab(1);
+  switchDayTab(state.activeDay || 1);
 
-  // Collapsible sections
+  // Collapsibles
   renderTransportSection();
   renderStaysSection();
   renderDiningSection();
@@ -384,7 +653,8 @@ function renderPlanScreen() {
 function renderDayTabs() {
   const container = document.getElementById('dayTabsNav');
   if (!container) return;
-  container.innerHTML = state.data.daysData.map(d => `
+  const daysData = state.data.daysData || [];
+  container.innerHTML = daysData.map(d => `
     <button class="day-tab ${d.day === state.activeDay ? 'active' : ''}" onclick="switchDayTab(${d.day})">
       <span class="day-tab-num">Day ${d.day}</span>
       <span class="day-tab-name">${d.title}</span>
@@ -402,9 +672,10 @@ function renderTimeline(dayNum) {
   const container = document.getElementById('timelineList');
   if (!container) return;
 
-  const dayObj = state.data.daysData.find(d => d.day === dayNum) || state.data.daysData[0];
-  if (!dayObj || !dayObj.items.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">No activities yet</div><div class="empty-state-desc">Tap "Add a stop" to get started.</div></div>`;
+  const daysData = state.data.daysData || [];
+  const dayObj = daysData.find(d => d.day === dayNum) || daysData[0];
+  if (!dayObj || !dayObj.items || !dayObj.items.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">No activities yet</div><div class="empty-state-desc">Tap "Add a stop" to add custom viewpoints.</div></div>`;
     return;
   }
 
@@ -416,14 +687,14 @@ function renderTimeline(dayNum) {
     <div class="timeline-item">
       <div class="timeline-dot ${item.hiddenGem ? 'gem' : ''}">${icon}</div>
       <div class="timeline-card ${item.hiddenGem ? 'hidden-gem' : ''}">
-        <img src="${item.image}" alt="${item.title}" class="timeline-card-img">
+        <img src="${item.image}" alt="${item.title}" class="timeline-card-img" onerror="this.src='https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80'">
         <div class="timeline-card-body">
           <div class="timeline-card-time"><i class="fa-regular fa-clock"></i> ${item.time}</div>
           <div class="timeline-card-title">${item.title}</div>
           <div class="timeline-card-meta">
             <span><i class="fa-solid fa-hourglass-half"></i> ${item.duration}</span>
             <span>•</span>
-            <span>${item.fee ? `$${item.fee}` : 'Free'}</span>
+            <span>${item.fee ? `$${item.fee}` : 'Free Entry'}</span>
           </div>
           <div class="timeline-ai-tip">${item.aiTip}</div>
           <div class="timeline-card-footer">
@@ -448,7 +719,7 @@ function removeStop(id) {
 }
 
 // --------------------------------------------------------------------------
-// 9. COLLAPSIBLE SECTIONS
+// 10. COLLAPSIBLE SECTIONS
 // --------------------------------------------------------------------------
 function toggleCollapsible(id) {
   const el = document.getElementById(id);
@@ -460,18 +731,19 @@ function renderTransportSection() {
   const distKm = parseInt(data.distance) || 340;
   const fuelLiters = (distKm / 100) * 9.0;
   const fuelCost = fuelLiters * 1.45;
+  const vehicle = data.vehicle || { name: "7-Seater Luxury SUV", type: "SUV", pricePerDay: 65, image: "assets/luxury_suv.png" };
 
-  document.getElementById('transportSummary').textContent = `${data.vehicle.name} · ~$${Math.round(fuelCost)} fuel`;
+  document.getElementById('transportSummary').textContent = `${vehicle.name} · ~$${Math.round(fuelCost)} fuel`;
 
   const container = document.getElementById('transportContent');
   if (!container) return;
 
   container.innerHTML = `
     <div class="vehicle-pick">
-      <img src="${data.vehicle.image}" alt="${data.vehicle.name}" class="vehicle-pick-img">
+      <img src="${vehicle.image || 'assets/luxury_suv.png'}" alt="${vehicle.name}" class="vehicle-pick-img" onerror="this.src='assets/luxury_suv.png'">
       <div class="vehicle-pick-info">
-        <div class="vehicle-pick-name">${data.vehicle.name}</div>
-        <div class="vehicle-pick-spec">${data.vehicle.type} · $${data.vehicle.pricePerDay}/day</div>
+        <div class="vehicle-pick-name">${vehicle.name}</div>
+        <div class="vehicle-pick-spec">${vehicle.type} · $${vehicle.pricePerDay}/day</div>
         <span class="badge badge-primary mt-1">AI Recommended</span>
       </div>
     </div>
@@ -479,7 +751,7 @@ function renderTransportSection() {
     <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Other options</div>
     <div class="vehicle-alt-scroll">
       ${VEHICLE_OPTIONS.map(v => `
-        <button class="vehicle-alt ${v.name === data.vehicle.name ? 'active' : ''}" onclick="selectVehicle('${v.name}')">
+        <button class="vehicle-alt ${v.name === vehicle.name ? 'active' : ''}" onclick="selectVehicle('${v.name}')">
           <div class="vehicle-alt-name">${v.name.split(' ').slice(-2).join(' ')}</div>
           <div class="vehicle-alt-price">${v.price}</div>
         </button>
@@ -487,12 +759,12 @@ function renderTransportSection() {
     </div>
 
     <div class="fuel-summary">
-      <div class="fuel-row"><span>Total distance</span><span>${data.distance}</span></div>
+      <div class="fuel-row"><span>Total distance</span><span>${data.distance || '340 km'}</span></div>
       <div class="fuel-row"><span>Est. fuel needed</span><span>${fuelLiters.toFixed(1)} L</span></div>
       <div class="fuel-row total"><span>Est. fuel cost</span><span>$${fuelCost.toFixed(0)}</span></div>
     </div>
 
-    <button class="btn btn-primary btn-block mt-3" onclick="openVehicleBookingModal('${data.vehicle.name}', '$${data.vehicle.pricePerDay}/day')">
+    <button class="btn btn-primary btn-block mt-3" onclick="openVehicleBookingModal('${vehicle.name}', '$${vehicle.pricePerDay}/day')">
       Hire Vehicle <i class="fa-solid fa-arrow-right"></i>
     </button>
   `;
@@ -501,11 +773,11 @@ function renderTransportSection() {
 function selectVehicle(name) {
   const match = VEHICLE_OPTIONS.find(v => v.name === name);
   if (match) {
+    if (!state.data.vehicle) state.data.vehicle = {};
     state.data.vehicle.name = match.name;
-    const priceStr = match.price.replace('$','').replace('/day','');
+    const priceStr = match.price.replace('$', '').replace('/day', '');
     state.data.vehicle.pricePerDay = parseInt(priceStr);
     renderTransportSection();
-    // Also update stat
     document.getElementById('statVehicle').textContent = name.split(' ').slice(-1)[0];
   }
 }
@@ -525,16 +797,16 @@ function renderStaysSection() {
   }
 
   container.innerHTML = stays.map(s => {
-    const price = Math.round(s.price * mult);
+    const price = Math.round((s.price || 120) * mult);
     return `
     <div class="stay-card">
-      <img src="${s.image}" alt="${s.name}" class="stay-card-img">
+      <img src="${s.image}" alt="${s.name}" class="stay-card-img" onerror="this.src='assets/boutique_villa.png'">
       <div class="stay-card-info">
         <div class="stay-card-name">${s.name}</div>
         <div class="stay-card-price">$${price} <span>/ night</span></div>
-        <div class="stay-card-detail"><i class="fa-solid fa-location-arrow"></i> ${s.offRoute} · ⭐ ${s.rating}</div>
+        <div class="stay-card-detail"><i class="fa-solid fa-location-arrow"></i> ${s.offRoute || 'Near route'} · ⭐ ${s.rating || 4.8}</div>
         <div class="stay-card-tags">
-          ${s.amenities.slice(0, 3).map(a => `<span class="badge badge-outline">${a}</span>`).join('')}
+          ${(s.amenities || ["Wi-Fi", "View"]).slice(0, 3).map(a => `<span class="badge badge-outline">${a}</span>`).join('')}
         </div>
         <div class="stay-card-actions">
           <button class="btn btn-sm btn-primary flex-1" onclick="alert('Reserving ${s.name.replace(/'/g, "\\'")} at $${price}/night!')">Book</button>
@@ -561,21 +833,21 @@ function renderDiningSection() {
   container.innerHTML = dining.map(d => `
     <div class="dining-item">
       <div class="dining-left">
-        <div class="badge badge-amber mb-2">${d.time}</div>
+        <div class="badge badge-amber mb-2">${d.time || 'Dining'}</div>
         <div class="dining-name">${d.name}</div>
-        <div class="dining-specialty">🍲 ${d.specialty}</div>
+        <div class="dining-specialty">🍲 ${d.specialty || 'Local Cuisine'}</div>
       </div>
       <div class="dining-right">
-        <div class="dining-rating">⭐ ${d.rating}</div>
-        <div class="dining-detour">${d.detour}</div>
-        <div class="text-xs font-semibold mt-1">${d.price}</div>
+        <div class="dining-rating">⭐ ${d.rating || 4.8}</div>
+        <div class="dining-detour">${d.detour || 'On route'}</div>
+        <div class="text-xs font-semibold mt-1">${d.price || '$10-$20'}</div>
       </div>
     </div>
   `).join('');
 }
 
 function renderBudgetSection() {
-  const base = state.data.baseCost;
+  const base = state.data.baseCost || 540;
   const mult = state.budgetMultiplier;
 
   const transport = Math.round(base * 0.28 * mult);
@@ -619,7 +891,6 @@ function renderBudgetSection() {
     </div>
   `;
 
-  // Render chart after DOM update
   setTimeout(() => {
     const canvas = document.getElementById('budgetDonutChart');
     if (!canvas) return;
@@ -648,21 +919,13 @@ function renderBudgetSection() {
 }
 
 // --------------------------------------------------------------------------
-// 10. EXPLORE SCREEN: MAP + BOTTOM SHEET
+// 11. EXPLORE SCREEN: MAP & BOTTOM SHEET
 // --------------------------------------------------------------------------
 function initMap() {
   const mapEl = document.getElementById('routeMap');
   if (!mapEl || state.mapInstance) return;
 
-  const data = state.data;
-  const allCoords = [];
-  data.daysData.forEach(day => {
-    day.items.forEach(item => {
-      if (item.lat && item.lng) allCoords.push([item.lat, item.lng]);
-    });
-  });
-
-  const defaultCenter = allCoords.length ? allCoords[0] : [7.2906, 80.6337];
+  const defaultCenter = [7.2906, 80.6337];
   const map = L.map('routeMap', { zoomControl: false }).setView(defaultCenter, 9);
 
   activeMapLayer = L.tileLayer(MAP_LAYERS.streets, {
@@ -671,35 +934,54 @@ function initMap() {
     attribution: '&copy; Google Maps'
   }).addTo(map);
 
-  // Route polyline
-  if (allCoords.length > 1) {
-    const polyline = L.polyline(allCoords, { color: '#2563EB', weight: 5, opacity: 0.85 }).addTo(map);
-    map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
-  }
+  state.mapInstance = map;
+  updateMapWithCurrentRoute();
+}
 
-  // Markers
-  allCoords.forEach((coord, idx) => {
-    const items = [];
-    data.daysData.forEach(day => {
-      day.items.forEach(item => {
-        if (item.lat === coord[0] && item.lng === coord[1]) items.push(item);
-      });
-    });
-    const label = items[0]?.title || `Stop ${idx + 1}`;
-    const marker = L.marker(coord).addTo(map);
-    marker.bindPopup(`
-      <div style="font-family:var(--font-body); min-width:140px;">
-        <b style="color:#2563EB;">${label}</b>
-        <div style="margin-top:6px;">
-          <button onclick="openStopInGoogleMaps('${label.replace(/'/g, "\\'")}', ${coord[0]}, ${coord[1]})" style="background:#2563EB; color:#fff; border:none; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer;">
-            🗺️ Google Maps
-          </button>
-        </div>
-      </div>
-    `);
+function updateMapWithCurrentRoute() {
+  if (!state.mapInstance) return;
+  const map = state.mapInstance;
+
+  // Clear existing markers & layers except tileLayer
+  map.eachLayer(layer => {
+    if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+      map.removeLayer(layer);
+    }
   });
 
-  state.mapInstance = map;
+  const allCoords = [];
+  (state.data.daysData || []).forEach(day => {
+    (day.items || []).forEach(item => {
+      if (item.lat && item.lng && !isNaN(item.lat) && !isNaN(item.lng)) {
+        allCoords.push({ coord: [item.lat, item.lng], title: item.title, category: item.category });
+      }
+    });
+  });
+
+  if (allCoords.length > 0) {
+    const latLngs = allCoords.map(c => c.coord);
+
+    if (latLngs.length > 1) {
+      const polyline = L.polyline(latLngs, { color: '#2563EB', weight: 5, opacity: 0.85 }).addTo(map);
+      map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
+    } else {
+      map.setView(latLngs[0], 11);
+    }
+
+    allCoords.forEach((point, idx) => {
+      const marker = L.marker(point.coord).addTo(map);
+      marker.bindPopup(`
+        <div style="font-family:var(--font-body); min-width:140px;">
+          <b style="color:#2563EB;">${point.title}</b>
+          <div style="margin-top:6px;">
+            <button onclick="openStopInGoogleMaps('${point.title.replace(/'/g, "\\'")}', ${point.coord[0]}, ${point.coord[1]})" style="background:#2563EB; color:#fff; border:none; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer;">
+              🗺️ Google Maps
+            </button>
+          </div>
+        </div>
+      `);
+    });
+  }
 }
 
 function setMapLayer(type, btn) {
@@ -722,23 +1004,19 @@ function renderExploreItems() {
   if (!container) return;
 
   const items = [];
-  // Add all stops
-  state.data.daysData.forEach(day => {
-    day.items.forEach(item => {
+  (state.data.daysData || []).forEach(day => {
+    (day.items || []).forEach(item => {
       items.push({ type: 'sights', icon: '📸', name: item.title, detail: `Day ${day.day} · ${item.time}`, lat: item.lat, lng: item.lng });
     });
   });
-  // Add stays
   (state.data.stays || []).forEach(s => {
     items.push({ type: 'stays', icon: '🏨', name: s.name, detail: `$${s.price}/night · ⭐${s.rating}` });
   });
-  // Add dining
   (state.data.dining || []).forEach(d => {
     items.push({ type: 'dining', icon: '🍜', name: d.name, detail: `${d.time} · ${d.price}` });
   });
-  // Add gas stations
-  items.push({ type: 'gas', icon: '⛽', name: 'Colombo Highway Rest Stop', detail: 'EV Fast Charging · 50 kW' });
-  items.push({ type: 'gas', icon: '⛽', name: 'Kandy City Center Station', detail: 'Petrol & EV · 150 kW' });
+
+  items.push({ type: 'gas', icon: '⛽', name: `${state.data.destination.split(',')[0]} Highway Rest Hub`, detail: 'Petrol & EV Fast Charging (100 kW)' });
 
   window._exploreAllItems = items;
   renderExploreFilteredItems(items);
@@ -775,7 +1053,88 @@ function dismissAiTip() {
 }
 
 // --------------------------------------------------------------------------
-// 11. GOOGLE MAPS INTEGRATION
+// 12. AI VOICE & CHAT ASSISTANT (GEMINI INTEGRATED)
+// --------------------------------------------------------------------------
+function openVoiceModal() {
+  document.getElementById('voiceModal').classList.add('active');
+  const wave = document.getElementById('voiceWaveAnimation');
+  if (wave) wave.style.opacity = '1';
+}
+
+async function askAiQuery(queryText) {
+  const bubble = document.getElementById('aiAssistantBubbleText');
+  const wave = document.getElementById('voiceWaveAnimation');
+  if (bubble) bubble.textContent = `Analyzing: "${queryText}"...`;
+  if (wave) wave.style.opacity = '1';
+
+  let answer = "";
+
+  if (hasGeminiApiKey()) {
+    try {
+      const apiKey = getGeminiApiKey();
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+      const context = `The user is on a ${state.data.days}-day trip from ${state.data.origin} to ${state.data.destination}. Answer this concise travel query in 1-2 friendly, helpful sentences: "${queryText}"`;
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: context }] }],
+          generationConfig: { maxOutputTokens: 120, temperature: 0.7 }
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        answer = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+      }
+    } catch (e) {
+      console.warn("AI voice query error:", e);
+    }
+  }
+
+  if (!answer) {
+    const fallbackAnswers = {
+      'Tell me the history and cultural tips for this trip': `This region is rich with historic heritage dating back centuries. Remember to wear modest attire covering knees and shoulders when visiting sacred sites!`,
+      'What are the best food specialties to try?': `Be sure to try local spice curries, tropical street fruits, fresh Ceylon tea, and regional pancakes at morning stalls!`,
+      'What should I pack for this trip?': `Bring breathable cotton layers, sturdy walking shoes for viewpoint trails, rain poncho, and a lightweight jacket for cooler hill nights!`
+    };
+    answer = fallbackAnswers[queryText] || `For ${state.data.destination}, we recommend starting early morning to beat the afternoon mountain mist and stay hydrated!`;
+  }
+
+  state.lastAssistantSpeech = answer;
+  if (bubble) bubble.textContent = `"${answer}"`;
+  speakText(answer);
+}
+
+function submitAiQuery() {
+  const input = document.getElementById('assistantUserInput');
+  if (!input || !input.value.trim()) return;
+  const q = input.value.trim();
+  input.value = "";
+  askAiQuery(q);
+}
+
+function speakText(text) {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.onend = () => {
+      const wave = document.getElementById('voiceWaveAnimation');
+      if (wave) wave.style.opacity = '0.3';
+    };
+    window.speechSynthesis.speak(utterance);
+  }
+}
+
+function toggleAssistantSpeech() {
+  const text = state.lastAssistantSpeech || document.getElementById('aiAssistantBubbleText')?.textContent || "";
+  speakText(text.replace(/^"|"$/g, ''));
+}
+
+// --------------------------------------------------------------------------
+// 13. GOOGLE MAPS NAVIGATION & MODALS
 // --------------------------------------------------------------------------
 function openCurrentRouteInGoogleMaps() {
   const d = state.data;
@@ -793,9 +1152,6 @@ function openStopInGoogleMaps(title, lat, lng) {
   window.open(url, '_blank');
 }
 
-// --------------------------------------------------------------------------
-// 12. MODALS
-// --------------------------------------------------------------------------
 function closeModal(id) {
   const modal = document.getElementById(id);
   if (modal) modal.classList.remove('active');
@@ -811,21 +1167,26 @@ function submitCustomStop() {
   const duration = document.getElementById('newStopDuration').value || 45;
   const fee = parseInt(document.getElementById('newStopFee').value || 0);
 
-  const dayObj = state.data.daysData.find(d => d.day === state.activeDay) || state.data.daysData[0];
-  dayObj.items.push({
-    id: `custom_${Date.now()}`,
-    time: "03:30 PM",
-    title: name,
-    category: cat === 'viewpoint' ? 'Photography' : cat === 'food' ? 'Food' : cat === 'activity' ? 'Adventure' : 'Culture',
-    duration: `${duration} mins`,
-    fee: fee,
-    image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80",
-    aiTip: "✨ Custom stop added by you.",
-    hiddenGem: true
-  });
+  const daysData = state.data.daysData || [];
+  const dayObj = daysData.find(d => d.day === state.activeDay) || daysData[0];
+  if (dayObj) {
+    if (!dayObj.items) dayObj.items = [];
+    dayObj.items.push({
+      id: `custom_${Date.now()}`,
+      time: "03:30 PM",
+      title: name,
+      category: cat === 'viewpoint' ? 'Photography' : cat === 'food' ? 'Food' : cat === 'activity' ? 'Adventure' : 'Culture',
+      duration: `${duration} mins`,
+      fee: fee,
+      image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80",
+      aiTip: "✨ Custom stop added by you.",
+      hiddenGem: true
+    });
+  }
 
   closeModal('addStopModal');
   renderTimeline(state.activeDay);
+  showToast("Stop added to itinerary", "success");
 }
 
 function openVehicleBookingModal(title, price) {
@@ -836,15 +1197,11 @@ function openVehicleBookingModal(title, price) {
 
 function confirmVehicleBooking() {
   closeModal('vehicleModal');
-  alert("🎉 Reservation request sent! Check your email for confirmation.");
+  showToast("🎉 Vehicle reserved! Driver details sent to your email.", "success");
 }
 
 function openShareModal() {
   document.getElementById('shareModal').classList.add('active');
-}
-
-function openVoiceModal() {
-  document.getElementById('voiceModal').classList.add('active');
 }
 
 function shareTripAction(type) {
@@ -852,16 +1209,16 @@ function shareTripAction(type) {
   const title = state.data.title;
   if (type === 'link') {
     navigator.clipboard.writeText(window.location.href);
-    alert(`🔗 Trip link for "${title}" copied!`);
+    showToast(`🔗 Link for "${title}" copied to clipboard!`, "success");
   } else if (type === 'pdf') {
     window.print();
   } else {
-    alert(`Exporting "${title}"...`);
+    showToast(`Exporting "${title}"...`, "info");
   }
 }
 
 // --------------------------------------------------------------------------
-// 13. PROFILE: DARK MODE
+// 14. PROFILE: DARK MODE
 // --------------------------------------------------------------------------
 function toggleDarkMode() {
   const html = document.documentElement;
