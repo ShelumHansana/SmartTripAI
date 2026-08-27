@@ -490,17 +490,16 @@
           <div class="settings-group">
             <div class="settings-group-title">AI Engine</div>
             <div class="settings-list">
-              <div class="settings-item" onclick="openGeminiApiKeyModal()">
+              <div class="settings-item" style="cursor: default;">
                 <div class="settings-item-left">
                   <div class="settings-item-icon" style="background: var(--primary-gradient); color: #fff;"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
                   <div>
-                    <span class="settings-item-label" style="display:block;">Google Gemini API</span>
-                    <span class="text-xs text-muted" id="geminiApiStatusText">Demo Generator Mode</span>
+                    <span class="settings-item-label" style="display:block;">Google Gemini AI</span>
+                    <span class="text-xs text-muted">Active (v1.5 Flash Engine)</span>
                   </div>
                 </div>
                 <div class="settings-item-right">
-                  <span class="badge badge-primary" id="geminiApiBadge">Configure</span>
-                  <i class="fa-solid fa-chevron-right"></i>
+                  <span class="badge badge-emerald"><i class="fa-solid fa-bolt"></i> Live</span>
                 </div>
               </div>
             </div>
@@ -645,32 +644,6 @@
   <!-- MODALS                                       -->
   <!-- ============================================ -->
 
-  <!-- Google Gemini API Key Modal -->
-  <div class="modal-backdrop" id="geminiApiKeyModal">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3 class="modal-title"><i class="fa-solid fa-key text-primary-c"></i> Google Gemini API</h3>
-        <button class="modal-close" onclick="closeModal('geminiApiKeyModal')">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p class="text-sm text-muted mb-3">
-          Enter your free Google Gemini API Key to enable real-time worldwide AI trip generation and live travel assistant queries.
-        </p>
-        <div class="form-group">
-          <label class="form-label"><i class="fa-solid fa-shield-halved"></i> API Key</label>
-          <input type="password" id="geminiApiKeyInput" class="form-control" placeholder="AIzaSy...">
-          <span class="text-xs text-muted mt-1" style="display: block;">
-            Get a free key from <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--primary); font-weight:600; text-decoration:underline;">Google AI Studio</a>. Saved locally on your device.
-          </span>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-outline" onclick="removeGeminiApiKey()">Clear Key</button>
-        <button class="btn btn-primary" onclick="saveGeminiApiKey()">Save Key</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Add Custom Stop Modal -->
   <div class="modal-backdrop" id="addStopModal">
     <div class="modal-card">
@@ -801,6 +774,7 @@
   <!-- JS Libraries -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

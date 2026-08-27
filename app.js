@@ -133,8 +133,10 @@ const TRIP_PRESETS = {
 // --------------------------------------------------------------------------
 // 2. GLOBAL STATE & CONFIG
 // --------------------------------------------------------------------------
-const STORAGE_KEY_GEMINI = 'smarttrip_gemini_api_key';
-const GEMINI_MODEL = 'gemini-1.5-flash';
+const GEMINI_MODELS = (typeof window !== 'undefined' && window.CONFIG && window.CONFIG.GEMINI_MODELS) 
+  ? window.CONFIG.GEMINI_MODELS 
+  : ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
+const GEMINI_MODEL = GEMINI_MODELS[0];
 
 let state = {
   presetKey: 'srilanka',
@@ -184,68 +186,19 @@ function updateGreeting() {
 }
 
 function getGeminiApiKey() {
-  return localStorage.getItem(STORAGE_KEY_GEMINI) || '';
-}
-
-function setGeminiApiKey(key) {
-  if (key && key.trim()) {
-    localStorage.setItem(STORAGE_KEY_GEMINI, key.trim());
-  } else {
-    localStorage.removeItem(STORAGE_KEY_GEMINI);
+  if (typeof window !== 'undefined' && window.CONFIG && window.CONFIG.GEMINI_API_KEY) {
+    return window.CONFIG.GEMINI_API_KEY;
   }
-  updateGeminiStatusUI();
+  return localStorage.getItem('smarttrip_gemini_api_key') || '';
 }
 
 function hasGeminiApiKey() {
   const key = getGeminiApiKey();
-  return Boolean(key && key.length > 10);
+  return Boolean(key && key.length > 5);
 }
 
 function updateGeminiStatusUI() {
-  const statusText = document.getElementById('geminiApiStatusText');
-  const badge = document.getElementById('geminiApiBadge');
-  const input = document.getElementById('geminiApiKeyInput');
-  const hasKey = hasGeminiApiKey();
-
-  if (statusText && badge) {
-    if (hasKey) {
-      statusText.textContent = `Connected · ${GEMINI_MODEL}`;
-      badge.textContent = 'Active';
-      badge.className = 'badge badge-emerald';
-    } else {
-      statusText.textContent = 'Demo Generator Mode';
-      badge.textContent = 'Configure';
-      badge.className = 'badge badge-primary';
-    }
-  }
-
-  if (input) {
-    input.value = getGeminiApiKey();
-  }
-}
-
-function openGeminiApiKeyModal() {
-  const input = document.getElementById('geminiApiKeyInput');
-  if (input) input.value = getGeminiApiKey();
-  document.getElementById('geminiApiKeyModal').classList.add('active');
-}
-
-function saveGeminiApiKey() {
-  const input = document.getElementById('geminiApiKeyInput');
-  const val = input ? input.value : '';
-  if (!val.trim()) {
-    showToast("Please enter a valid Gemini API Key", "warning");
-    return;
-  }
-  setGeminiApiKey(val);
-  closeModal('geminiApiKeyModal');
-  showToast("✨ Google Gemini API Key saved successfully!", "success");
-}
-
-function removeGeminiApiKey() {
-  setGeminiApiKey('');
-  closeModal('geminiApiKeyModal');
-  showToast("Gemini API Key removed. Using Demo Generator.", "info");
+  // Built-in active status - zero user configuration needed
 }
 
 // --------------------------------------------------------------------------
@@ -461,7 +414,7 @@ async function generateAIItinerary() {
 
 async function callGeminiTripAPI(origin, destination, days, adults, kids, pets, budget, vibes) {
   const apiKey = getGeminiApiKey();
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+  const models = GEMINI_MODELS;
 
   const systemPrompt = `You are SmartTripAI, an expert travel route planner. Generate a detailed, highly accurate, and engaging travel itinerary JSON from ${origin} to ${destination} for ${days} days.
 Travelers: ${adults} Adults, ${kids} Kids, ${pets} Pets. Budget tier: ${budget}. Vibes: ${vibes}.
@@ -535,28 +488,39 @@ Respond ONLY with a valid JSON object strictly matching this schema:
 
 Ensure all latitude/longitude (lat, lng) are geographically realistic for ${destination}. Include at least 2-3 stops per day, 2-3 stays, and 3 dining spots.`;
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: systemPrompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.7
-      }
-    })
-  });
+  let lastError = null;
+  for (const model of models) {
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: systemPrompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.7
+          }
+        })
+      });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) throw new Error("Empty response from Gemini");
+
+      return JSON.parse(rawText);
+    } catch (err) {
+      lastError = err;
+      console.warn(`Model ${model} failed, trying next model:`, err);
+    }
   }
 
-  const result = await response.json();
-  const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) throw new Error("Empty response from Gemini");
-
-  return JSON.parse(rawText);
+  throw lastError || new Error("All Gemini models failed");
 }
 
 function generateSmartLocalFallback(origin, dest, days, adults, kids, pets, budget) {
@@ -1070,26 +1034,32 @@ async function askAiQuery(queryText) {
   let answer = "";
 
   if (hasGeminiApiKey()) {
-    try {
-      const apiKey = getGeminiApiKey();
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
-      const context = `The user is on a ${state.data.days}-day trip from ${state.data.origin} to ${state.data.destination}. Answer this concise travel query in 1-2 friendly, helpful sentences: "${queryText}"`;
+    const apiKey = getGeminiApiKey();
+    const context = `The user is on a ${state.data.days}-day trip from ${state.data.origin} to ${state.data.destination}. Answer this concise travel query in 1-2 friendly, helpful sentences: "${queryText}"`;
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: context }] }],
-          generationConfig: { maxOutputTokens: 120, temperature: 0.7 }
-        })
-      });
+    for (const model of GEMINI_MODELS) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: context }] }],
+            generationConfig: { maxOutputTokens: 120, temperature: 0.7 }
+          })
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        answer = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+        if (response.ok) {
+          const data = await response.json();
+          const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          if (candidateText) {
+            answer = candidateText;
+            break;
+          }
+        }
+      } catch (e) {
+        console.warn(`AI voice query on model ${model} error:`, e);
       }
-    } catch (e) {
-      console.warn("AI voice query error:", e);
     }
   }
 

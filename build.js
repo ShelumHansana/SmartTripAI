@@ -9,7 +9,7 @@ targetDirs.forEach(dir => {
   }
   fs.mkdirSync(dir, { recursive: true });
 
-  const filesToCopy = ['index.html', 'styles.css', 'app.js', 'manifest.json'];
+  const filesToCopy = ['index.html', 'styles.css', 'config.js', 'app.js', 'manifest.json'];
   filesToCopy.forEach(file => {
     const src = path.join(__dirname, file);
     if (fs.existsSync(src)) {

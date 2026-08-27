@@ -12,6 +12,11 @@ android/local.properties
 # Vercel
 .vercel/
 
+# Configuration & Secrets
+config.js
+www/config.js
+public/config.js
+
 # IDE / System
 .DS_Store
 Thumbs.db
