@@ -131,8 +131,12 @@ const TRIP_PRESETS = {
 };
 
 // --------------------------------------------------------------------------
-// 2. GLOBAL STATE & CONFIG
+// 2. GLOBAL STATE & CONFIG & CURRENCY ENGINE
 // --------------------------------------------------------------------------
+const EXCHANGE_RATE_USD_TO_LKR = 310;
+const SRI_LANKA_PETROL_92_PRICE_LKR = 340; // Lanka IOC / Ceypetco Octane 92 Petrol ~Rs. 340 / L
+const SRI_LANKA_DIESEL_PRICE_LKR = 320;    // Auto Diesel ~Rs. 320 / L
+
 const GEMINI_MODELS = (typeof window !== 'undefined' && window.CONFIG && window.CONFIG.GEMINI_MODELS) 
   ? window.CONFIG.GEMINI_MODELS 
   : ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
@@ -140,6 +144,8 @@ const GEMINI_MODEL = GEMINI_MODELS[0];
 
 let state = {
   presetKey: 'srilanka',
+  currency: (typeof localStorage !== 'undefined' && localStorage.getItem('smarttrip_currency')) || 'LKR',
+  showDualCurrency: true,
   data: JSON.parse(JSON.stringify(TRIP_PRESETS.srilanka)),
   activeDay: 1,
   activeScreen: 'screen-home',
@@ -153,10 +159,10 @@ let state = {
 };
 
 const VEHICLE_OPTIONS = [
-  { name: "7-Seater Luxury SUV", type: "SUV", price: "$65/day" },
-  { name: "Tesla Model Y EV", type: "EV", price: "$75/day" },
-  { name: "Toyota Camry Hybrid", type: "Sedan", price: "$45/day" },
-  { name: "Mercedes V-Class", type: "Van", price: "$110/day" }
+  { name: "7-Seater Luxury SUV", type: "SUV / AWD", pricePerDay: 65, consumptionRate: 9.0, image: "assets/luxury_suv.png" },
+  { name: "Tesla Model Y EV", type: "Electric EV", pricePerDay: 75, consumptionRate: 5.5, image: "https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&w=300&q=80" },
+  { name: "Toyota Camry Hybrid", type: "Sedan / Hybrid", pricePerDay: 45, consumptionRate: 6.5, image: "https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?auto=format&fit=crop&w=300&q=80" },
+  { name: "Mercedes V-Class", type: "Luxury Van", pricePerDay: 110, consumptionRate: 11.0, image: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=300&q=80" }
 ];
 
 const MAP_LAYERS = {
@@ -168,13 +174,160 @@ const MAP_LAYERS = {
 let activeMapLayer = null;
 
 // --------------------------------------------------------------------------
+// 2.1 CURRENCY CONVERSION & FORMATTING HELPERS
+// --------------------------------------------------------------------------
+function formatNumber(num) {
+  return new Intl.NumberFormat('en-US').format(Math.round(num || 0));
+}
+
+function formatPrice(usdAmount, options = {}) {
+  const usd = Math.round(usdAmount || 0);
+  const lkr = Math.round(usd * EXCHANGE_RATE_USD_TO_LKR);
+  const lkrFormatted = `Rs. ${formatNumber(lkr)}`;
+  const usdFormatted = `$${formatNumber(usd)}`;
+
+  if (options.onlyPrimary) {
+    return state.currency === 'LKR' ? lkrFormatted : usdFormatted;
+  }
+  if (options.onlySecondary) {
+    return state.currency === 'LKR' ? usdFormatted : lkrFormatted;
+  }
+
+  if (state.currency === 'LKR') {
+    return `${lkrFormatted} <span class="currency-sub">(${usdFormatted})</span>`;
+  } else {
+    return `${usdFormatted} <span class="currency-sub">(${lkrFormatted})</span>`;
+  }
+}
+
+function formatPriceCompact(usdAmount) {
+  const usd = Math.round(usdAmount || 0);
+  const lkr = Math.round(usd * EXCHANGE_RATE_USD_TO_LKR);
+  if (state.currency === 'LKR') {
+    return `Rs. ${formatNumber(lkr)}`;
+  }
+  return `$${formatNumber(usd)}`;
+}
+
+function formatPriceText(priceStrOrNum) {
+  if (typeof priceStrOrNum === 'number') {
+    return formatPrice(priceStrOrNum);
+  }
+  if (!priceStrOrNum) return '$10-$20';
+
+  const rangeMatch = priceStrOrNum.match(/\$?(\d+)\s*[-–—]\s*\$?(\d+)/);
+  if (rangeMatch) {
+    const minUSD = parseInt(rangeMatch[1]);
+    const maxUSD = parseInt(rangeMatch[2]);
+    const minLKR = Math.round(minUSD * EXCHANGE_RATE_USD_TO_LKR);
+    const maxLKR = Math.round(maxUSD * EXCHANGE_RATE_USD_TO_LKR);
+    if (state.currency === 'LKR') {
+      return `Rs. ${formatNumber(minLKR)} - ${formatNumber(maxLKR)} <span class="currency-sub">($${minUSD}-$${maxUSD})</span>`;
+    } else {
+      return `$${minUSD}-$${maxUSD} <span class="currency-sub">(Rs. ${formatNumber(minLKR)}-${formatNumber(maxLKR)})</span>`;
+    }
+  }
+
+  const singleMatch = priceStrOrNum.match(/\$?(\d+)/);
+  if (singleMatch) {
+    return formatPrice(parseInt(singleMatch[1]));
+  }
+  return priceStrOrNum;
+}
+
+function calculateFuelStats(distKm, vehicleType) {
+  const dist = parseInt(distKm) || 340;
+  let consumptionRate = 9.0;
+  if (vehicleType) {
+    const vt = vehicleType.toLowerCase();
+    if (vt.includes('van')) consumptionRate = 11.0;
+    else if (vt.includes('sedan') || vt.includes('hybrid')) consumptionRate = 6.5;
+    else if (vt.includes('ev') || vt.includes('electric')) consumptionRate = 5.5;
+  }
+
+  const fuelLiters = (dist / 100) * consumptionRate;
+  const costLKR = Math.round(fuelLiters * SRI_LANKA_PETROL_92_PRICE_LKR);
+  const costUSD = Math.round(costLKR / EXCHANGE_RATE_USD_TO_LKR);
+
+  return {
+    distKm: dist,
+    fuelLiters: fuelLiters.toFixed(1),
+    consumptionRate: consumptionRate,
+    pricePerLiterLKR: SRI_LANKA_PETROL_92_PRICE_LKR,
+    costLKR: costLKR,
+    costUSD: costUSD,
+    costFormatted: state.currency === 'LKR' 
+      ? `Rs. ${formatNumber(costLKR)} <span class="currency-sub">($${costUSD})</span>`
+      : `$${costUSD} <span class="currency-sub">(Rs. ${formatNumber(costLKR)})</span>`
+  };
+}
+
+function setCurrency(curr) {
+  state.currency = curr;
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('smarttrip_currency', curr);
+  }
+  updateCurrencyUI();
+  renderPlanScreen();
+  renderExploreItems();
+  renderSampleTrips();
+  showToast(`💱 Currency switched to ${curr === 'LKR' ? 'Sri Lankan Rupee (LKR / Rs.)' : 'US Dollar (USD / $)'}`, 'info');
+}
+
+function toggleCurrencyPreference() {
+  const next = state.currency === 'LKR' ? 'USD' : 'LKR';
+  setCurrency(next);
+}
+
+function updateCurrencyUI() {
+  const curr = state.currency || 'LKR';
+  const btnLKR = document.getElementById('currBtnLKR');
+  const btnUSD = document.getElementById('currBtnUSD');
+  if (btnLKR && btnUSD) {
+    btnLKR.classList.toggle('active', curr === 'LKR');
+    btnUSD.classList.toggle('active', curr === 'USD');
+  }
+
+  const settingsVal = document.getElementById('settingsCurrencyVal');
+  if (settingsVal) {
+    settingsVal.textContent = curr === 'LKR' ? 'LKR (Rs.)' : 'USD ($)';
+  }
+}
+
+// --------------------------------------------------------------------------
 // 3. INITIALIZATION & STORAGE
 // --------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
   updateGreeting();
   updateGeminiStatusUI();
+  updateCurrencyUI();
+  renderSampleTrips();
   loadPreset('srilanka');
 });
+
+function renderSampleTrips() {
+  const container = document.getElementById('sampleTripsList');
+  if (!container) return;
+
+  const samples = [
+    { key: 'srilanka', flag: '🇱🇰', title: 'Colombo → Kandy → Ella', meta: '3 days · 4 adults', cost: 540, img: 'assets/hero_kandy.png' },
+    { key: 'japan', flag: '🇯🇵', title: 'Tokyo → Kyoto → Nara', meta: '5 days · 2 adults', cost: 820, img: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=120&q=80' },
+    { key: 'europe', flag: '🇨🇭', title: 'Paris → Interlaken → Venice', meta: '7 days · 2 adults, 1 kid', cost: 1250, img: 'https://images.unsplash.com/photo-1530122037265-a5f1f91d3b99?auto=format&fit=crop&w=120&q=80' }
+  ];
+
+  container.innerHTML = samples.map(s => {
+    const formattedCost = formatPrice(s.cost);
+    return `
+    <div class="trip-mini-card" onclick="loadAndGo('${s.key}')">
+      <img src="${s.img}" alt="${s.title}" class="trip-mini-thumb" onerror="this.src='assets/hero_kandy.png'">
+      <div class="trip-mini-info">
+        <div class="trip-mini-title">${s.flag} ${s.title}</div>
+        <div class="trip-mini-meta">${s.meta} · ~${formattedCost}</div>
+      </div>
+      <i class="fa-solid fa-chevron-right trip-mini-arrow"></i>
+    </div>`;
+  }).join('');
+}
 
 function updateGreeting() {
   const h = new Date().getHours();
@@ -419,6 +572,14 @@ async function callGeminiTripAPI(origin, destination, days, adults, kids, pets, 
   const systemPrompt = `You are SmartTripAI, an expert travel route planner. Generate a detailed, highly accurate, and engaging travel itinerary JSON from ${origin} to ${destination} for ${days} days.
 Travelers: ${adults} Adults, ${kids} Kids, ${pets} Pets. Budget tier: ${budget}. Vibes: ${vibes}.
 
+Sri Lanka Local Pricing Guidelines (if destination is Sri Lanka):
+- Fuel price: Ceylon Petroleum / Lanka IOC rate ~340 LKR/L (~$1.10/L)
+- Vehicle hire: ~$45-$70/day (Rs. 14,000-22,000/day)
+- Mid-range stays: ~$60-$140/night (Rs. 18,000-43,000/night)
+- Authentic meals & dining: ~$5-$18/meal (Rs. 1,500-5,500)
+- Entry fees: Authentic cultural/nature tickets (e.g. Pinnawala $15, Temple of Tooth $12, Sigiriya $36, Royal Botanical Gardens $8, Viewpoints $0)
+Provide all base numeric cost numbers in standard USD units (baseCost, vehicle pricePerDay, fee, stay price, dining price "$10-$20"). The app engine automatically converts and formats all items in dual Sri Lankan Rupee (LKR / Rs.) and USD ($).
+
 Respond ONLY with a valid JSON object strictly matching this schema:
 {
   "title": "${origin.split(',')[0]} → ${destination.split(',')[0]}",
@@ -430,9 +591,9 @@ Respond ONLY with a valid JSON object strictly matching this schema:
   "pets": ${pets},
   "budget": "${budget}",
   "heroImage": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80",
-  "distance": "e.g. 380 km",
-  "travelTime": "e.g. 6h 30m driving",
-  "baseCost": 580,
+  "distance": "e.g. 340 km",
+  "travelTime": "e.g. 7h 30m driving",
+  "baseCost": 540,
   "vehicle": {
     "name": "7-Seater Luxury SUV",
     "type": "SUV / AWD",
@@ -598,10 +759,17 @@ function renderPlanScreen() {
   }
 
   // Quick stats
-  document.getElementById('statDistance').textContent = data.distance || '340 km';
+  const statDistEl = document.getElementById('statDistance');
+  if (statDistEl) statDistEl.textContent = data.distance || '340 km';
+
   const estCost = Math.round((data.baseCost || 540) * mult);
-  document.getElementById('statCost').textContent = `~$${estCost}`;
-  document.getElementById('statVehicle').textContent = (data.vehicle?.name || 'SUV').split(' ').slice(-1)[0];
+  const statCostEl = document.getElementById('statCost');
+  if (statCostEl) {
+    statCostEl.innerHTML = `~${formatPrice(estCost)}`;
+  }
+
+  const statVehicleEl = document.getElementById('statVehicle');
+  if (statVehicleEl) statVehicleEl.textContent = (data.vehicle?.name || 'SUV').split(' ').slice(-1)[0];
 
   // Day tabs & timeline
   renderDayTabs();
@@ -647,6 +815,7 @@ function renderTimeline(dayNum) {
 
   container.innerHTML = dayObj.items.map(item => {
     const icon = categoryIcons[item.category] || '📍';
+    const feeText = item.fee ? formatPrice(item.fee) : 'Free Entry';
     return `
     <div class="timeline-item">
       <div class="timeline-dot ${item.hiddenGem ? 'gem' : ''}">${icon}</div>
@@ -658,7 +827,7 @@ function renderTimeline(dayNum) {
           <div class="timeline-card-meta">
             <span><i class="fa-solid fa-hourglass-half"></i> ${item.duration}</span>
             <span>•</span>
-            <span>${item.fee ? `$${item.fee}` : 'Free Entry'}</span>
+            <span>${feeText}</span>
           </div>
           <div class="timeline-ai-tip">${item.aiTip}</div>
           <div class="timeline-card-footer">
@@ -692,12 +861,15 @@ function toggleCollapsible(id) {
 
 function renderTransportSection() {
   const data = state.data;
-  const distKm = parseInt(data.distance) || 340;
-  const fuelLiters = (distKm / 100) * 9.0;
-  const fuelCost = fuelLiters * 1.45;
-  const vehicle = data.vehicle || { name: "7-Seater Luxury SUV", type: "SUV", pricePerDay: 65, image: "assets/luxury_suv.png" };
+  const vehicle = data.vehicle || { name: "7-Seater Luxury SUV", type: "SUV / AWD", pricePerDay: 65, image: "assets/luxury_suv.png" };
+  const fuelStats = calculateFuelStats(data.distance, vehicle.type);
+  const dailyPriceFormatted = formatPrice(vehicle.pricePerDay || 65);
 
-  document.getElementById('transportSummary').textContent = `${vehicle.name} · ~$${Math.round(fuelCost)} fuel`;
+  const fuelSummaryEl = document.getElementById('transportSummary');
+  if (fuelSummaryEl) {
+    const fuelCostShort = state.currency === 'LKR' ? `Rs. ${formatNumber(fuelStats.costLKR)}` : `$${fuelStats.costUSD}`;
+    fuelSummaryEl.textContent = `${vehicle.name} · ~${fuelCostShort} fuel`;
+  }
 
   const container = document.getElementById('transportContent');
   if (!container) return;
@@ -707,28 +879,41 @@ function renderTransportSection() {
       <img src="${vehicle.image || 'assets/luxury_suv.png'}" alt="${vehicle.name}" class="vehicle-pick-img" onerror="this.src='assets/luxury_suv.png'">
       <div class="vehicle-pick-info">
         <div class="vehicle-pick-name">${vehicle.name}</div>
-        <div class="vehicle-pick-spec">${vehicle.type} · $${vehicle.pricePerDay}/day</div>
+        <div class="vehicle-pick-spec">${vehicle.type || 'SUV'} · ${dailyPriceFormatted}/day</div>
         <span class="badge badge-primary mt-1">AI Recommended</span>
       </div>
     </div>
 
-    <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Other options</div>
+    <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Vehicle options</div>
     <div class="vehicle-alt-scroll">
       ${VEHICLE_OPTIONS.map(v => `
         <button class="vehicle-alt ${v.name === vehicle.name ? 'active' : ''}" onclick="selectVehicle('${v.name}')">
           <div class="vehicle-alt-name">${v.name.split(' ').slice(-2).join(' ')}</div>
-          <div class="vehicle-alt-price">${v.price}</div>
+          <div class="vehicle-alt-price">${formatPriceCompact(v.pricePerDay)}/day</div>
         </button>
       `).join('')}
     </div>
 
     <div class="fuel-summary">
-      <div class="fuel-row"><span>Total distance</span><span>${data.distance || '340 km'}</span></div>
-      <div class="fuel-row"><span>Est. fuel needed</span><span>${fuelLiters.toFixed(1)} L</span></div>
-      <div class="fuel-row total"><span>Est. fuel cost</span><span>$${fuelCost.toFixed(0)}</span></div>
+      <div class="fuel-row">
+        <span>Total route distance</span>
+        <strong>${data.distance || '340 km'}</strong>
+      </div>
+      <div class="fuel-row">
+        <span>Est. fuel consumption</span>
+        <strong>${fuelStats.fuelLiters} L (${fuelStats.consumptionRate} L/100km)</strong>
+      </div>
+      <div class="fuel-row">
+        <span>Sri Lanka Fuel Rate</span>
+        <span class="fuel-sl-rate-badge"><i class="fa-solid fa-gas-pump"></i> Rs. ${fuelStats.pricePerLiterLKR}/L (SL Petrol 92)</span>
+      </div>
+      <div class="fuel-row total">
+        <span>Est. fuel cost</span>
+        <span>${fuelStats.costFormatted}</span>
+      </div>
     </div>
 
-    <button class="btn btn-primary btn-block mt-3" onclick="openVehicleBookingModal('${vehicle.name}', '$${vehicle.pricePerDay}/day')">
+    <button class="btn btn-primary btn-block mt-3" onclick="openVehicleBookingModal('${vehicle.name}', '${dailyPriceFormatted}/day')">
       Hire Vehicle <i class="fa-solid fa-arrow-right"></i>
     </button>
   `;
@@ -739,8 +924,9 @@ function selectVehicle(name) {
   if (match) {
     if (!state.data.vehicle) state.data.vehicle = {};
     state.data.vehicle.name = match.name;
-    const priceStr = match.price.replace('$', '').replace('/day', '');
-    state.data.vehicle.pricePerDay = parseInt(priceStr);
+    state.data.vehicle.type = match.type;
+    state.data.vehicle.pricePerDay = match.pricePerDay;
+    state.data.vehicle.image = match.image;
     renderTransportSection();
     document.getElementById('statVehicle').textContent = name.split(' ').slice(-1)[0];
   }
@@ -761,19 +947,20 @@ function renderStaysSection() {
   }
 
   container.innerHTML = stays.map(s => {
-    const price = Math.round((s.price || 120) * mult);
+    const priceUSD = Math.round((s.price || 120) * mult);
+    const formattedPrice = formatPrice(priceUSD);
     return `
     <div class="stay-card">
       <img src="${s.image}" alt="${s.name}" class="stay-card-img" onerror="this.src='assets/boutique_villa.png'">
       <div class="stay-card-info">
         <div class="stay-card-name">${s.name}</div>
-        <div class="stay-card-price">$${price} <span>/ night</span></div>
+        <div class="stay-card-price">${formattedPrice} <span>/ night</span></div>
         <div class="stay-card-detail"><i class="fa-solid fa-location-arrow"></i> ${s.offRoute || 'Near route'} · ⭐ ${s.rating || 4.8}</div>
         <div class="stay-card-tags">
           ${(s.amenities || ["Wi-Fi", "View"]).slice(0, 3).map(a => `<span class="badge badge-outline">${a}</span>`).join('')}
         </div>
         <div class="stay-card-actions">
-          <button class="btn btn-sm btn-primary flex-1" onclick="alert('Reserving ${s.name.replace(/'/g, "\\'")} at $${price}/night!')">Book</button>
+          <button class="btn btn-sm btn-primary flex-1" onclick="alert('Reserving ${s.name.replace(/'/g, "\\'")} at ${formatPriceCompact(priceUSD)}/night!')">Book</button>
           <button class="btn btn-sm btn-outline" onclick="openStopInGoogleMaps('${s.name.replace(/'/g, "\\'")}', 0, 0)"><i class="fa-brands fa-google"></i></button>
         </div>
       </div>
@@ -794,7 +981,9 @@ function renderDiningSection() {
     return;
   }
 
-  container.innerHTML = dining.map(d => `
+  container.innerHTML = dining.map(d => {
+    const formattedPrice = formatPriceText(d.price);
+    return `
     <div class="dining-item">
       <div class="dining-left">
         <div class="badge badge-amber mb-2">${d.time || 'Dining'}</div>
@@ -804,23 +993,29 @@ function renderDiningSection() {
       <div class="dining-right">
         <div class="dining-rating">⭐ ${d.rating || 4.8}</div>
         <div class="dining-detour">${d.detour || 'On route'}</div>
-        <div class="text-xs font-semibold mt-1">${d.price || '$10-$20'}</div>
+        <div class="text-xs font-semibold mt-1">${formattedPrice}</div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderBudgetSection() {
   const base = state.data.baseCost || 540;
   const mult = state.budgetMultiplier;
 
-  const transport = Math.round(base * 0.28 * mult);
-  const stays = Math.round(base * 0.44 * mult);
-  const food = Math.round(base * 0.18 * mult);
-  const activities = Math.round(base * 0.10 * mult);
-  const total = transport + stays + food + activities;
+  const transportUSD = Math.round(base * 0.28 * mult);
+  const staysUSD = Math.round(base * 0.44 * mult);
+  const foodUSD = Math.round(base * 0.18 * mult);
+  const activitiesUSD = Math.round(base * 0.10 * mult);
+  const totalUSD = transportUSD + staysUSD + foodUSD + activitiesUSD;
 
-  document.getElementById('budgetSummaryText').textContent = `Total: ~$${total}`;
+  const totalFormatted = formatPrice(totalUSD);
+  const totalDisplay = formatPriceCompact(totalUSD);
+
+  const budgetSummaryText = document.getElementById('budgetSummaryText');
+  if (budgetSummaryText) {
+    budgetSummaryText.innerHTML = `Total: ~${totalFormatted}`;
+  }
 
   const container = document.getElementById('budgetContent');
   if (!container) return;
@@ -830,30 +1025,34 @@ function renderBudgetSection() {
       <div class="budget-chart-box">
         <canvas id="budgetDonutChart" width="120" height="120"></canvas>
         <div class="budget-chart-center">
-          <span class="budget-chart-total-label">Total</span>
-          <span class="budget-chart-total">$${total}</span>
+          <span class="budget-chart-total-label">Total (${state.currency})</span>
+          <span class="budget-chart-total" style="font-size: ${state.currency === 'LKR' ? '14px' : '20px'}; text-align:center; padding: 0 4px; word-break: break-word;">${totalDisplay}</span>
         </div>
       </div>
       <div class="budget-legend">
         <div class="budget-legend-item">
-          <div class="budget-legend-left"><div class="legend-dot" style="background:#2563EB;"></div><span>Transport</span></div>
-          <span class="budget-legend-val">$${transport}</span>
+          <div class="budget-legend-left"><div class="legend-dot" style="background:#2563EB;"></div><span>Transport & Fuel</span></div>
+          <span class="budget-legend-val">${formatPrice(transportUSD)}</span>
         </div>
         <div class="budget-legend-item">
-          <div class="budget-legend-left"><div class="legend-dot" style="background:#F97066;"></div><span>Stays</span></div>
-          <span class="budget-legend-val">$${stays}</span>
+          <div class="budget-legend-left"><div class="legend-dot" style="background:#F97066;"></div><span>Stays & Hotels</span></div>
+          <span class="budget-legend-val">${formatPrice(staysUSD)}</span>
         </div>
         <div class="budget-legend-item">
-          <div class="budget-legend-left"><div class="legend-dot" style="background:#10B981;"></div><span>Food</span></div>
-          <span class="budget-legend-val">$${food}</span>
+          <div class="budget-legend-left"><div class="legend-dot" style="background:#10B981;"></div><span>Food & Dining</span></div>
+          <span class="budget-legend-val">${formatPrice(foodUSD)}</span>
         </div>
         <div class="budget-legend-item">
-          <div class="budget-legend-left"><div class="legend-dot" style="background:#F59E0B;"></div><span>Activities</span></div>
-          <span class="budget-legend-val">$${activities}</span>
+          <div class="budget-legend-left"><div class="legend-dot" style="background:#F59E0B;"></div><span>Activities & Sights</span></div>
+          <span class="budget-legend-val">${formatPrice(activitiesUSD)}</span>
         </div>
       </div>
     </div>
   `;
+
+  const chartData = state.currency === 'LKR' 
+    ? [transportUSD * EXCHANGE_RATE_USD_TO_LKR, staysUSD * EXCHANGE_RATE_USD_TO_LKR, foodUSD * EXCHANGE_RATE_USD_TO_LKR, activitiesUSD * EXCHANGE_RATE_USD_TO_LKR]
+    : [transportUSD, staysUSD, foodUSD, activitiesUSD];
 
   setTimeout(() => {
     const canvas = document.getElementById('budgetDonutChart');
@@ -865,16 +1064,31 @@ function renderBudgetSection() {
     state.chartInstance = new Chart(ctx, {
       type: 'doughnut',
       data: {
-        labels: ['Transport', 'Stays', 'Food', 'Activities'],
+        labels: ['Transport & Fuel', 'Stays & Hotels', 'Food & Dining', 'Activities & Sights'],
         datasets: [{
-          data: [transport, stays, food, activities],
+          data: chartData,
           backgroundColor: ['#2563EB', '#F97066', '#10B981', '#F59E0B'],
           borderWidth: 0
         }]
       },
       options: {
         cutout: '70%',
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const val = context.raw;
+                if (state.currency === 'LKR') {
+                  const usdEquiv = Math.round(val / EXCHANGE_RATE_USD_TO_LKR);
+                  return ` Rs. ${formatNumber(val)} ($${usdEquiv})`;
+                }
+                const lkrEquiv = Math.round(val * EXCHANGE_RATE_USD_TO_LKR);
+                return ` $${formatNumber(val)} (Rs. ${formatNumber(lkrEquiv)})`;
+              }
+            }
+          }
+        },
         responsive: true,
         maintainAspectRatio: true
       }
@@ -970,17 +1184,21 @@ function renderExploreItems() {
   const items = [];
   (state.data.daysData || []).forEach(day => {
     (day.items || []).forEach(item => {
-      items.push({ type: 'sights', icon: '📸', name: item.title, detail: `Day ${day.day} · ${item.time}`, lat: item.lat, lng: item.lng });
+      const feeLabel = item.fee ? ` · ${formatPriceCompact(item.fee)}` : '';
+      items.push({ type: 'sights', icon: '📸', name: item.title, detail: `Day ${day.day} · ${item.time}${feeLabel}`, lat: item.lat, lng: item.lng });
     });
   });
   (state.data.stays || []).forEach(s => {
-    items.push({ type: 'stays', icon: '🏨', name: s.name, detail: `$${s.price}/night · ⭐${s.rating}` });
+    const formattedStay = formatPrice(s.price || 120);
+    items.push({ type: 'stays', icon: '🏨', name: s.name, detail: `${formattedStay}/night · ⭐${s.rating}` });
   });
   (state.data.dining || []).forEach(d => {
-    items.push({ type: 'dining', icon: '🍜', name: d.name, detail: `${d.time} · ${d.price}` });
+    const formattedDining = formatPriceText(d.price);
+    items.push({ type: 'dining', icon: '🍜', name: d.name, detail: `${d.time} · ${formattedDining}` });
   });
 
-  items.push({ type: 'gas', icon: '⛽', name: `${state.data.destination.split(',')[0]} Highway Rest Hub`, detail: 'Petrol & EV Fast Charging (100 kW)' });
+  const fuelRateNote = `Petrol 92 (Rs. ${SRI_LANKA_PETROL_92_PRICE_LKR}/L) & Fast EV Charging`;
+  items.push({ type: 'gas', icon: '⛽', name: `${state.data.destination.split(',')[0]} Highway Rest Hub`, detail: fuelRateNote });
 
   window._exploreAllItems = items;
   renderExploreFilteredItems(items);
@@ -1159,9 +1377,17 @@ function submitCustomStop() {
   showToast("Stop added to itinerary", "success");
 }
 
-function openVehicleBookingModal(title, price) {
+function openVehicleBookingModal(title, priceFormatted) {
   document.getElementById('modalVehicleTitle').textContent = title;
-  document.getElementById('modalVehiclePrice').textContent = `${price} · Verified Partner`;
+  const priceEl = document.getElementById('modalVehiclePrice');
+  if (priceEl) priceEl.innerHTML = `${priceFormatted} · Verified Partner`;
+  const driverOptionEl = document.getElementById('modalDriverOptionText');
+  if (driverOptionEl) {
+    const driverLKR = Math.round(25 * EXCHANGE_RATE_USD_TO_LKR);
+    driverOptionEl.innerHTML = state.currency === 'LKR' 
+      ? `Self-Drive or +Rs. ${formatNumber(driverLKR)}/day <span class="currency-sub">(+$25)</span>`
+      : `Self-Drive or +$25/day <span class="currency-sub">(+Rs. ${formatNumber(driverLKR)})</span>`;
+  }
   document.getElementById('vehicleModal').classList.add('active');
 }
 

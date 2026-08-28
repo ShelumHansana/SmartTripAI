@@ -40,6 +40,10 @@
         <h1 class="top-bar-title">SmartTrip<span>AI</span></h1>
       </div>
       <div class="top-bar-actions">
+        <div class="currency-pill-switch" id="topCurrencyPill" title="Switch Display Currency">
+          <button class="currency-pill-btn active" id="currBtnLKR" onclick="setCurrency('LKR')">🇱🇰 LKR</button>
+          <button class="currency-pill-btn" id="currBtnUSD" onclick="setCurrency('USD')">💵 USD</button>
+        </div>
         <button class="top-bar-btn" onclick="openVoiceModal()" title="AI Voice Assistant">
           <i class="fa-solid fa-microphone"></i>
         </button>
@@ -525,6 +529,19 @@
           <div class="settings-group">
             <div class="settings-group-title">Preferences</div>
             <div class="settings-list">
+              <div class="settings-item" onclick="toggleCurrencyPreference()" style="cursor:pointer;">
+                <div class="settings-item-left">
+                  <div class="settings-item-icon" style="background: var(--emerald-soft); color: var(--emerald);"><i class="fa-solid fa-money-bill-transfer"></i></div>
+                  <div>
+                    <span class="settings-item-label">Currency (LKR / USD)</span>
+                    <span class="text-xs text-muted" id="settingsExchangeRateLabel">1 USD ≈ Rs. 310 (SL Rate)</span>
+                  </div>
+                </div>
+                <div class="settings-item-right">
+                  <span id="settingsCurrencyVal" style="font-weight:600; color:var(--primary);">LKR (Rs.)</span>
+                  <i class="fa-solid fa-chevron-right"></i>
+                </div>
+              </div>
               <div class="settings-item">
                 <div class="settings-item-left">
                   <div class="settings-item-icon" style="background: var(--amber-soft); color: var(--amber);"><i class="fa-solid fa-wallet"></i></div>
@@ -537,7 +554,7 @@
               </div>
               <div class="settings-item">
                 <div class="settings-item-left">
-                  <div class="settings-item-icon" style="background: var(--emerald-soft); color: var(--emerald);"><i class="fa-solid fa-language"></i></div>
+                  <div class="settings-item-icon" style="background: var(--primary-soft); color: var(--primary);"><i class="fa-solid fa-language"></i></div>
                   <span class="settings-item-label">Language</span>
                 </div>
                 <div class="settings-item-right">
@@ -697,9 +714,9 @@
         <h4 id="modalVehicleTitle" style="font-size: 16px; font-weight: 700;">7-Seater Luxury SUV</h4>
         <p class="text-muted text-sm" id="modalVehiclePrice">$65/day · Verified Partner</p>
         <div style="background: var(--bg-input); border-radius: var(--radius-md); padding: 12px; margin-top: 12px; text-align: left;">
-          <div class="fuel-row"><span>Driver Option:</span><strong>Self-Drive or +$25/day</strong></div>
+          <div class="fuel-row"><span>Driver Option:</span><strong id="modalDriverOptionText">Self-Drive or +Rs. 7,750/day (+$25)</strong></div>
           <div class="fuel-row"><span>Insurance:</span><strong>Full Comprehensive</strong></div>
-          <div class="fuel-row"><span>Pickup:</span><strong>Colombo Airport (CMB)</strong></div>
+          <div class="fuel-row"><span>Pickup:</span><strong>Colombo Airport (CMB) / Islandwide</strong></div>
         </div>
       </div>
       <div class="modal-footer">
