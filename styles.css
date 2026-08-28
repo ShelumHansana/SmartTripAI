@@ -560,9 +560,15 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .form-row {
   display: flex;
   gap: 12px;
+  align-items: flex-start;
 }
 
 .form-row .form-group { flex: 1; }
+
+/* Match stepper height to form-control inside a form-row */
+.form-row .stepper {
+  height: 45px;
+}
 
 /* --------------------------------------------------------------------------
    11. CHIPS & BADGES
