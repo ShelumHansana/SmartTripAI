@@ -1407,10 +1407,263 @@ function shareTripAction(type) {
     navigator.clipboard.writeText(window.location.href);
     showToast(`🔗 Link for "${title}" copied to clipboard!`, "success");
   } else if (type === 'pdf') {
-    window.print();
+    showToast(`📄 Generating complete all-pages PDF for "${title}"...`, "info");
+    generatePrintableTripDocument();
+    setTimeout(() => {
+      window.print();
+    }, 150);
   } else {
     showToast(`Exporting "${title}"...`, "info");
   }
+}
+
+// --------------------------------------------------------------------------
+// 13.1 ALL-PAGES PRINT & PDF EXPORT DOCUMENT GENERATOR
+// --------------------------------------------------------------------------
+function generatePrintableTripDocument() {
+  const container = document.getElementById('printTripDocument');
+  if (!container) return;
+
+  const data = state.data;
+  const mult = state.budgetMultiplier || 1.0;
+  const base = data.baseCost || 540;
+
+  const transportUSD = Math.round(base * 0.28 * mult);
+  const staysUSD = Math.round(base * 0.44 * mult);
+  const foodUSD = Math.round(base * 0.18 * mult);
+  const activitiesUSD = Math.round(base * 0.10 * mult);
+  const totalUSD = transportUSD + staysUSD + foodUSD + activitiesUSD;
+
+  const vehicle = data.vehicle || { name: "7-Seater Luxury SUV", type: "SUV / AWD", pricePerDay: 65, image: "assets/luxury_suv.png" };
+  const fuelStats = calculateFuelStats(data.distance, vehicle.type);
+  const vehiclePriceDaily = formatPrice(vehicle.pricePerDay || 65);
+
+  const categoryIcons = { 'Nature': '🌲', 'Culture': '⛩️', 'Food': '🍜', 'Photography': '📸', 'Adventure': '🧗', 'Beach': '🏖️' };
+
+  // Render ALL days in the itinerary
+  const daysHtml = (data.daysData || []).map(day => {
+    const stopsCount = (day.items || []).length;
+    const stopsHtml = (day.items || []).map(item => {
+      const icon = categoryIcons[item.category] || '📍';
+      const feeText = item.fee ? formatPrice(item.fee) : 'Free Entry';
+      return `
+        <div class="print-stop-item">
+          <div class="print-stop-time">${item.time}</div>
+          <div class="print-stop-content">
+            <div class="print-stop-heading">
+              <span>${icon} <strong>${item.title}</strong> ${item.hiddenGem ? '<span class="print-badge amber">Hidden Gem</span>' : ''}</span>
+              <span class="print-badge">${item.category || 'Sight'}</span>
+            </div>
+            <div class="print-stop-meta">
+              <span>⏱️ Duration: ${item.duration}</span> &nbsp;•&nbsp; 
+              <span>🎟️ Entry Fee: ${feeText}</span>
+            </div>
+            ${item.aiTip ? `<div class="print-stop-tip">💡 <strong>AI Tip:</strong> ${item.aiTip}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="print-day-card">
+        <div class="print-day-header">
+          <span class="print-day-title">Day ${day.day}: ${day.title}</span>
+          <span class="print-day-stop-count">${stopsCount} planned stop${stopsCount !== 1 ? 's' : ''}</span>
+        </div>
+        <div>
+          ${stopsHtml || '<p style="font-size:11px; color:#64748b; padding: 6px 0;">No stops scheduled for this day.</p>'}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Render Stays
+  const staysHtml = (data.stays || []).map(s => {
+    const priceUSD = Math.round((s.price || 120) * mult);
+    return `
+      <div class="print-card-compact">
+        <div class="print-card-name">🏨 ${s.name}</div>
+        <div class="print-card-detail">⭐ ${s.rating || 4.8} · ${s.offRoute || 'Near route'}</div>
+        <div class="print-card-detail" style="margin-top: 3px;">
+          ${(s.amenities || []).slice(0, 3).map(a => `<span class="print-badge" style="font-size:9px; padding:1px 5px;">${a}</span>`).join(' ')}
+        </div>
+        <div class="print-card-price">${formatPrice(priceUSD)} / night</div>
+      </div>
+    `;
+  }).join('');
+
+  // Render Dining
+  const diningHtml = (data.dining || []).map(d => {
+    return `
+      <div class="print-card-compact">
+        <div class="print-card-name">🍽️ [${d.time || 'Meal'}] ${d.name}</div>
+        <div class="print-card-detail">🍲 ${d.specialty || 'Specialty Cuisine'}</div>
+        <div class="print-card-detail">⭐ ${d.rating || 4.8} · ${d.detour || 'On route'}</div>
+        <div class="print-card-price">${formatPriceText(d.price)}</div>
+      </div>
+    `;
+  }).join('');
+
+  const todayStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+  container.innerHTML = `
+    <!-- Header -->
+    <div class="print-header">
+      <div class="print-brand">
+        <div class="print-logo"><i class="fa-solid fa-compass"></i></div>
+        <div class="print-brand-text">
+          <h1>SmartTrip<span>AI</span></h1>
+          <p>AI-Optimized Master Travel Itinerary & Route Guide</p>
+        </div>
+      </div>
+      <div class="print-meta-right">
+        <div><strong>Generated:</strong> ${todayStr}</div>
+        <div><strong>Currency:</strong> ${state.currency} (1 USD ≈ Rs. 310)</div>
+      </div>
+    </div>
+
+    <!-- Hero / Summary Card -->
+    <div class="print-trip-hero">
+      <div class="print-trip-title">${data.title}</div>
+      <div class="print-trip-route">📍 <strong>Route:</strong> ${data.origin} &nbsp;➔&nbsp; ${data.destination}</div>
+      
+      <div class="print-badges">
+        <span class="print-badge emerald"><i class="fa-solid fa-wand-magic-sparkles"></i> Gemini AI Curated</span>
+        <span class="print-badge"><i class="fa-solid fa-wallet"></i> ${data.budget ? data.budget.toUpperCase() : 'MID-RANGE'} Budget</span>
+        <span class="print-badge amber"><i class="fa-solid fa-users"></i> ${data.adults} Adults${data.kids ? `, ${data.kids} Kids` : ''}${data.pets ? `, ${data.pets} Pets` : ''}</span>
+      </div>
+
+      <div class="print-stats-grid">
+        <div class="print-stat-box">
+          <div class="print-stat-label">Duration</div>
+          <div class="print-stat-value">📅 ${data.days} Days</div>
+        </div>
+        <div class="print-stat-box">
+          <div class="print-stat-label">Total Distance</div>
+          <div class="print-stat-value">🛣️ ${data.distance || '340 km'}</div>
+        </div>
+        <div class="print-stat-box">
+          <div class="print-stat-label">Est. Driving Time</div>
+          <div class="print-stat-value">⏱️ ${data.travelTime || '7h 45m driving'}</div>
+        </div>
+        <div class="print-stat-box">
+          <div class="print-stat-label">Est. Total Budget</div>
+          <div class="print-stat-value" style="color: #2563EB;">💰 ~${formatPriceCompact(totalUSD)}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1. Day by Day Itinerary -->
+    <div class="print-section-title">
+      <i class="fa-solid fa-calendar-days" style="color:#2563EB;"></i> Complete Day-by-Day Itinerary (${data.days} Days)
+    </div>
+    ${daysHtml}
+
+    <!-- 2. Transport & Fuel Analysis -->
+    <div class="print-section-title">
+      <i class="fa-solid fa-car-side" style="color:#2563EB;"></i> Transportation & Fuel Analysis
+    </div>
+    <div class="print-grid-2">
+      <div class="print-card-compact">
+        <div class="print-card-name">🚗 Recommended Vehicle: ${vehicle.name}</div>
+        <div class="print-card-detail">Type: ${vehicle.type || 'SUV / AWD'} · Daily Rate: ${vehiclePriceDaily}</div>
+        <div class="print-card-detail" style="margin-top: 4px;">Standard insurance and islandwide/regional pickup included.</div>
+      </div>
+      <div class="print-card-compact">
+        <div class="print-card-name">⛽ Fuel & Mileage Estimate</div>
+        <div class="print-card-detail">Distance: <strong>${data.distance || '340 km'}</strong> · Consumption: <strong>${fuelStats.fuelLiters} L</strong> (${fuelStats.consumptionRate} L/100km)</div>
+        <div class="print-card-detail">Fuel Benchmark: Rs. ${fuelStats.pricePerLiterLKR}/L (SL Petrol 92)</div>
+        <div class="print-card-price" style="margin-top: 4px;">Total Est. Fuel Cost: ${fuelStats.costFormatted}</div>
+      </div>
+    </div>
+
+    <!-- 3. Stays & Dining -->
+    ${(data.stays && data.stays.length) ? `
+      <div class="print-section-title">
+        <i class="fa-solid fa-hotel" style="color:#2563EB;"></i> Curated Accommodations & Stays
+      </div>
+      <div class="print-grid-3">
+        ${staysHtml}
+      </div>
+    ` : ''}
+
+    ${(data.dining && data.dining.length) ? `
+      <div class="print-section-title">
+        <i class="fa-solid fa-utensils" style="color:#2563EB;"></i> Recommended Dining & Local Cuisine
+      </div>
+      <div class="print-grid-3">
+        ${diningHtml}
+      </div>
+    ` : ''}
+
+    <!-- 4. Budget Breakdown Table -->
+    <div class="print-section-title">
+      <i class="fa-solid fa-chart-pie" style="color:#2563EB;"></i> Comprehensive Budget Breakdown
+    </div>
+    <table class="print-table">
+      <thead>
+        <tr>
+          <th>Expense Category</th>
+          <th>Allocation</th>
+          <th style="text-align: right;">Estimated Cost (${state.currency})</th>
+          <th style="text-align: right;">Alternative Currency</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>🚗 Transportation & Fuel</td>
+          <td>28%</td>
+          <td class="num">${formatPrice(transportUSD, { onlyPrimary: true })}</td>
+          <td class="num" style="color:#64748b;">${formatPrice(transportUSD, { onlySecondary: true })}</td>
+        </tr>
+        <tr>
+          <td>🏨 Stays & Accommodations</td>
+          <td>44%</td>
+          <td class="num">${formatPrice(staysUSD, { onlyPrimary: true })}</td>
+          <td class="num" style="color:#64748b;">${formatPrice(staysUSD, { onlySecondary: true })}</td>
+        </tr>
+        <tr>
+          <td>🍜 Food & Dining</td>
+          <td>18%</td>
+          <td class="num">${formatPrice(foodUSD, { onlyPrimary: true })}</td>
+          <td class="num" style="color:#64748b;">${formatPrice(foodUSD, { onlySecondary: true })}</td>
+        </tr>
+        <tr>
+          <td>🎟️ Activities & Attractions Entry</td>
+          <td>10%</td>
+          <td class="num">${formatPrice(activitiesUSD, { onlyPrimary: true })}</td>
+          <td class="num" style="color:#64748b;">${formatPrice(activitiesUSD, { onlySecondary: true })}</td>
+        </tr>
+        <tr class="total-row">
+          <td><strong>Estimated Total Budget (${data.adults} Adults)</strong></td>
+          <td><strong>100%</strong></td>
+          <td class="num" style="color:#2563EB; font-size:12px;"><strong>${formatPrice(totalUSD, { onlyPrimary: true })}</strong></td>
+          <td class="num" style="color:#2563EB; font-size:12px;"><strong>${formatPrice(totalUSD, { onlySecondary: true })}</strong></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 5. Essential Guidelines -->
+    <div class="print-notes-box">
+      <strong>📌 Essential Travel Tips & AI Recommendations:</strong>
+      <ul>
+        <li><strong>Cultural Etiquette:</strong> Dress respectfully when visiting temples and sacred landmarks (cover shoulders and knees).</li>
+        <li><strong>Mountain Driving:</strong> Early morning departures are recommended to avoid mountain fog and heavy midday traffic.</li>
+        <li><strong>Offline Preparation:</strong> Download offline Google Maps for mountain trails with intermittent cellular connectivity.</li>
+      </ul>
+    </div>
+
+    <!-- Print Footer -->
+    <div class="print-footer">
+      <div>SmartTripAI — Generated for ${data.title} (${data.days} Days Itinerary)</div>
+      <div>Complete All-Pages Itinerary Export · Keep exploring with SmartTripAI</div>
+    </div>
+  `;
+}
+
+// Automatically sync printable trip document before printing (e.g. via Ctrl+P)
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeprint', generatePrintableTripDocument);
 }
 
 // --------------------------------------------------------------------------

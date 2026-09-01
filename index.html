@@ -335,10 +335,15 @@
             <!-- Rendered by JS -->
           </div>
 
-          <!-- Add Stop -->
-          <button class="add-stop-btn" onclick="openAddStopModal()">
-            <i class="fa-solid fa-plus"></i> Add a stop
-          </button>
+          <!-- Add Stop & Export Actions -->
+          <div style="display: flex; gap: 8px; margin: 12px 0 16px 0;">
+            <button class="add-stop-btn" style="margin: 0; flex: 1;" onclick="openAddStopModal()">
+              <i class="fa-solid fa-plus"></i> Add a stop
+            </button>
+            <button class="btn btn-outline" style="border-radius: var(--radius-lg); font-size: 13px; font-weight: 600; padding: 0 14px; white-space: nowrap;" onclick="shareTripAction('pdf')" title="Export Full PDF Itinerary">
+              <i class="fa-solid fa-file-pdf text-coral"></i> Export PDF
+            </button>
+          </div>
 
           <!-- Collapsible: Transport -->
           <div class="collapsible" id="colTransport">
@@ -785,8 +790,11 @@
         <button class="btn btn-outline" id="speakAudioBtn" onclick="toggleAssistantSpeech()"><i class="fa-solid fa-volume-high"></i> Listen</button>
         <button class="btn btn-ghost" onclick="closeModal('voiceModal')">Close</button>
       </div>
-    </div>
+  </div><!-- End Modals -->
   </div>
+
+  <!-- Dedicated All-Pages Print & PDF Export Document Layout -->
+  <div id="printTripDocument" class="print-trip-document" aria-hidden="true"></div>
 
   <!-- JS Libraries -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
