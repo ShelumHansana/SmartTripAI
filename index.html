@@ -579,25 +579,31 @@
                   <i class="fa-solid fa-chevron-right"></i>
                 </div>
               </div>
-              <div class="settings-item">
+              <div class="settings-item" onclick="openDefaultBudgetModal()" style="cursor:pointer;" id="settingsDefaultBudgetItem">
                 <div class="settings-item-left">
                   <div class="settings-item-icon" style="background: var(--amber-soft); color: var(--amber);"><i
                       class="fa-solid fa-wallet"></i></div>
-                  <span class="settings-item-label">Default Budget</span>
+                  <div>
+                    <span class="settings-item-label">Default Budget</span>
+                    <span class="text-xs text-muted" id="settingsBudgetSub">Applied to new trip plans</span>
+                  </div>
                 </div>
                 <div class="settings-item-right">
-                  <span>Mid-Range</span>
+                  <span id="settingsBudgetVal" style="font-weight:600; color:var(--primary);">Mid-Range</span>
                   <i class="fa-solid fa-chevron-right"></i>
                 </div>
               </div>
-              <div class="settings-item">
+              <div class="settings-item" onclick="openLanguageModal()" style="cursor:pointer;" id="settingsLanguageItem">
                 <div class="settings-item-left">
                   <div class="settings-item-icon" style="background: var(--primary-soft); color: var(--primary);"><i
                       class="fa-solid fa-language"></i></div>
-                  <span class="settings-item-label">Language</span>
+                  <div>
+                    <span class="settings-item-label">Language</span>
+                    <span class="text-xs text-muted" id="settingsLanguageSub">AI Planning & Voice Audio</span>
+                  </div>
                 </div>
                 <div class="settings-item-right">
-                  <span>English</span>
+                  <span id="settingsLanguageVal" style="font-weight:600; color:var(--primary);">English</span>
                   <i class="fa-solid fa-chevron-right"></i>
                 </div>
               </div>
@@ -841,7 +847,45 @@
             class="fa-solid fa-volume-high"></i> Listen</button>
         <button class="btn btn-ghost" onclick="closeModal('voiceModal')">Close</button>
       </div>
-    </div><!-- End Modals -->
+    </div>
+  </div>
+
+  <!-- Default Budget Preference Modal -->
+  <div class="modal-backdrop" id="defaultBudgetModal" onclick="if(event.target===this) closeModal('defaultBudgetModal')">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="fa-solid fa-wallet text-amber"></i> Select Default Budget</h3>
+        <button class="modal-close" onclick="closeModal('defaultBudgetModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-sm text-muted mb-3">Choose the spending tier automatically applied when planning trips and estimating fuel, hotel, and activity expenses.</p>
+        <div class="preference-options-list" id="budgetOptionsList">
+          <!-- Rendered dynamically by JS -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('defaultBudgetModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Language Preference Modal -->
+  <div class="modal-backdrop" id="languageModal" onclick="if(event.target===this) closeModal('languageModal')">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="fa-solid fa-language text-primary-c"></i> Select Language</h3>
+        <button class="modal-close" onclick="closeModal('languageModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-sm text-muted mb-3">Choose your preferred language for itinerary plans, AI voice guide responses, and local tips.</p>
+        <div class="preference-options-list" id="languageOptionsList">
+          <!-- Rendered dynamically by JS -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('languageModal')">Close</button>
+      </div>
+    </div>
   </div>
 
   <!-- Dedicated All-Pages Print & PDF Export Document Layout -->

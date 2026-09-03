@@ -142,9 +142,51 @@ const GEMINI_MODELS = (typeof window !== 'undefined' && window.CONFIG && window.
   : ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
 const GEMINI_MODEL = GEMINI_MODELS[0];
 
+const BUDGET_TIERS = [
+  {
+    key: 'economy',
+    emoji: '💵',
+    title: 'Economy',
+    badge: 'Budget-Friendly',
+    multiplier: 0.65,
+    desc: 'Backpacker & budget style. Hostels, scenic guesthouses, local transit & street food (~0.65× cost).'
+  },
+  {
+    key: 'mid',
+    emoji: '💳',
+    title: 'Mid-Range',
+    badge: 'Balanced',
+    multiplier: 1.0,
+    desc: 'Comfortable balance. 3-4★ hotels, rental SUV/hybrid, and popular local dining (~1.0× cost).'
+  },
+  {
+    key: 'luxury',
+    emoji: '💎',
+    title: 'Luxury',
+    badge: 'Premium',
+    multiplier: 1.85,
+    desc: '5★ boutique villas & resorts, private chauffeur/luxury SUV, and gourmet fine dining (~1.85× cost).'
+  }
+];
+
+const SUPPORTED_LANGUAGES = [
+  { code: 'en', name: 'English', native: 'English', flag: '🇬🇧', speechLang: 'en-US' },
+  { code: 'si', name: 'Sinhala', native: 'සිංහල', flag: '🇱🇰', speechLang: 'si-LK' },
+  { code: 'ta', name: 'Tamil', native: 'தமிழ்', flag: '🇱🇰', speechLang: 'ta-LK' },
+  { code: 'fr', name: 'French', native: 'Français', flag: '🇫🇷', speechLang: 'fr-FR' },
+  { code: 'de', name: 'German', native: 'Deutsch', flag: '🇩🇪', speechLang: 'de-DE' },
+  { code: 'ja', name: 'Japanese', native: '日本語', flag: '🇯🇵', speechLang: 'ja-JP' },
+  { code: 'zh', name: 'Chinese', native: '中文', flag: '🇨🇳', speechLang: 'zh-CN' },
+  { code: 'es', name: 'Spanish', native: 'Español', flag: '🇪🇸', speechLang: 'es-ES' },
+  { code: 'it', name: 'Italian', native: 'Italiano', flag: '🇮🇹', speechLang: 'it-IT' },
+  { code: 'ru', name: 'Russian', native: 'Русский', flag: '🇷🇺', speechLang: 'ru-RU' }
+];
+
 let state = {
   presetKey: 'srilanka',
   currency: (typeof localStorage !== 'undefined' && localStorage.getItem('smarttrip_currency')) || 'LKR',
+  defaultBudget: (typeof localStorage !== 'undefined' && localStorage.getItem('smarttrip_default_budget')) || 'mid',
+  language: (typeof localStorage !== 'undefined' && localStorage.getItem('smarttrip_language')) || 'en',
   showDualCurrency: true,
   data: JSON.parse(JSON.stringify(TRIP_PRESETS.srilanka)),
   activeDay: 1,
@@ -294,6 +336,134 @@ function updateCurrencyUI() {
   }
 }
 
+function updatePreferencesUI() {
+  const currentBudget = state.defaultBudget || 'mid';
+  const currentLang = state.language || 'en';
+
+  const budgetTier = BUDGET_TIERS.find(t => t.key === currentBudget) || BUDGET_TIERS[1];
+  const langObj = SUPPORTED_LANGUAGES.find(l => l.code === currentLang) || SUPPORTED_LANGUAGES[0];
+
+  const budgetVal = document.getElementById('settingsBudgetVal');
+  if (budgetVal) {
+    budgetVal.textContent = `${budgetTier.emoji} ${budgetTier.title}`;
+  }
+  const budgetSub = document.getElementById('settingsBudgetSub');
+  if (budgetSub) {
+    budgetSub.textContent = `${budgetTier.badge} (~${budgetTier.multiplier}× cost)`;
+  }
+
+  const langVal = document.getElementById('settingsLanguageVal');
+  if (langVal) {
+    langVal.textContent = `${langObj.flag} ${langObj.name}`;
+  }
+  const langSub = document.getElementById('settingsLanguageSub');
+  if (langSub) {
+    langSub.textContent = `${langObj.native} · AI Itinerary & Audio`;
+  }
+}
+
+function renderBudgetOptions() {
+  const container = document.getElementById('budgetOptionsList');
+  if (!container) return;
+
+  const current = state.defaultBudget || 'mid';
+
+  container.innerHTML = BUDGET_TIERS.map(tier => {
+    const isActive = tier.key === current;
+    const badgeColor = tier.key === 'luxury' ? 'badge-amber' : tier.key === 'economy' ? 'badge-emerald' : 'badge-blue';
+    return `
+      <div class="pref-option-card ${isActive ? 'active' : ''}" onclick="setDefaultBudget('${tier.key}')">
+        <div class="pref-option-left">
+          <div class="pref-option-icon">${tier.emoji}</div>
+          <div class="pref-option-info">
+            <div class="pref-option-title">
+              ${tier.title} 
+              <span class="badge ${badgeColor}" style="font-size:10px; padding:2px 6px;">${tier.badge}</span>
+            </div>
+            <div class="pref-option-subtitle">${tier.desc}</div>
+          </div>
+        </div>
+        <div class="pref-option-check">
+          <i class="fa-solid fa-check"></i>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderLanguageOptions() {
+  const container = document.getElementById('languageOptionsList');
+  if (!container) return;
+
+  const current = state.language || 'en';
+
+  container.innerHTML = SUPPORTED_LANGUAGES.map(lang => {
+    const isActive = lang.code === current;
+    return `
+      <div class="pref-option-card ${isActive ? 'active' : ''}" onclick="setDefaultLanguage('${lang.code}')">
+        <div class="pref-option-left">
+          <div class="pref-option-icon" style="font-size: 24px;">${lang.flag}</div>
+          <div class="pref-option-info">
+            <div class="pref-option-title">
+              ${lang.name} <span class="text-xs text-muted" style="font-weight:400; margin-left:4px;">(${lang.native})</span>
+            </div>
+            <div class="pref-option-subtitle">AI itinerary planning, tips & guide voice</div>
+          </div>
+        </div>
+        <div class="pref-option-check">
+          <i class="fa-solid fa-check"></i>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openDefaultBudgetModal() {
+  renderBudgetOptions();
+  const modal = document.getElementById('defaultBudgetModal');
+  if (modal) modal.classList.add('active');
+}
+
+function openLanguageModal() {
+  renderLanguageOptions();
+  const modal = document.getElementById('languageModal');
+  if (modal) modal.classList.add('active');
+}
+
+function setDefaultBudget(budgetKey) {
+  const tier = BUDGET_TIERS.find(t => t.key === budgetKey) || BUDGET_TIERS[1];
+  state.defaultBudget = tier.key;
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('smarttrip_default_budget', tier.key);
+  }
+
+  // Update trip state budget and multiplier
+  state.data.budget = tier.key;
+  state.budgetMultiplier = tier.multiplier;
+
+  // Sync wizard step 3 budget cards
+  document.querySelectorAll('#budgetCards .style-card').forEach(c => {
+    c.classList.toggle('active', c.getAttribute('data-value') === tier.key);
+  });
+
+  updatePreferencesUI();
+  renderPlanScreen();
+  closeModal('defaultBudgetModal');
+  showToast(`💼 Default budget set to ${tier.title} (${tier.emoji})`, 'success');
+}
+
+function setDefaultLanguage(code) {
+  const lang = SUPPORTED_LANGUAGES.find(l => l.code === code) || SUPPORTED_LANGUAGES[0];
+  state.language = lang.code;
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('smarttrip_language', lang.code);
+  }
+
+  updatePreferencesUI();
+  closeModal('languageModal');
+  showToast(`🌐 Language set to ${lang.name} (${lang.native})`, 'success');
+}
+
 // --------------------------------------------------------------------------
 // 3. INITIALIZATION & STORAGE
 // --------------------------------------------------------------------------
@@ -301,6 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateGreeting();
   updateGeminiStatusUI();
   updateCurrencyUI();
+  updatePreferencesUI();
   renderSampleTrips();
   loadPreset('srilanka');
 });
@@ -568,9 +739,13 @@ async function generateAIItinerary() {
 async function callGeminiTripAPI(origin, destination, days, adults, kids, pets, budget, vibes) {
   const apiKey = getGeminiApiKey();
   const models = GEMINI_MODELS;
+  const langObj = SUPPORTED_LANGUAGES.find(l => l.code === state.language) || SUPPORTED_LANGUAGES[0];
+  const langDirective = (langObj.code !== 'en')
+    ? `\nLanguage instruction: All itinerary titles, day highlight descriptions, stop categories, and practical local tips (aiTip) MUST be translated and written in ${langObj.name} (${langObj.native}). Keep JSON structure and keys strictly in English.`
+    : '';
 
   const systemPrompt = `You are SmartTripAI, an expert travel route planner. Generate a detailed, highly accurate, and engaging travel itinerary JSON from ${origin} to ${destination} for ${days} days.
-Travelers: ${adults} Adults, ${kids} Kids, ${pets} Pets. Budget tier: ${budget}. Vibes: ${vibes}.
+Travelers: ${adults} Adults, ${kids} Kids, ${pets} Pets. Budget tier: ${budget}. Vibes: ${vibes}.${langDirective}
 
 Sri Lanka Local Pricing Guidelines (if destination is Sri Lanka):
 - Fuel price: Ceylon Petroleum / Lanka IOC rate ~340 LKR/L (~$1.10/L)
@@ -711,6 +886,11 @@ function loadPreset(key) {
   state.presetKey = key;
   state.data = JSON.parse(JSON.stringify(TRIP_PRESETS[key]));
 
+  // If user has set a preferred default budget, honor it
+  if (state.defaultBudget) {
+    state.data.budget = state.defaultBudget;
+  }
+
   // Sync form fields
   document.getElementById('originInput').value = state.data.origin;
   document.getElementById('destInput').value = state.data.destination;
@@ -722,7 +902,7 @@ function loadPreset(key) {
   document.querySelectorAll('#budgetCards .style-card').forEach(c => {
     c.classList.toggle('active', c.getAttribute('data-value') === state.data.budget);
   });
-  const multipliers = { economy: 0.6, mid: 1.0, luxury: 1.8 };
+  const multipliers = { economy: 0.65, mid: 1.0, luxury: 1.85 };
   state.budgetMultiplier = multipliers[state.data.budget] || 1.0;
 
   renderPlanScreen();
@@ -1253,7 +1433,9 @@ async function askAiQuery(queryText) {
 
   if (hasGeminiApiKey()) {
     const apiKey = getGeminiApiKey();
-    const context = `The user is on a ${state.data.days}-day trip from ${state.data.origin} to ${state.data.destination}. Answer this concise travel query in 1-2 friendly, helpful sentences: "${queryText}"`;
+    const langObj = SUPPORTED_LANGUAGES.find(l => l.code === state.language) || SUPPORTED_LANGUAGES[0];
+    const langPrompt = (langObj.code !== 'en') ? ` Please reply in ${langObj.name} (${langObj.native}).` : '';
+    const context = `The user is on a ${state.data.days}-day trip from ${state.data.origin} to ${state.data.destination}. Answer this concise travel query in 1-2 friendly, helpful sentences: "${queryText}".${langPrompt}`;
 
     for (const model of GEMINI_MODELS) {
       try {
@@ -1307,6 +1489,10 @@ function speakText(text) {
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
+    const langObj = SUPPORTED_LANGUAGES.find(l => l.code === state.language) || SUPPORTED_LANGUAGES[0];
+    if (langObj && langObj.speechLang) {
+      utterance.lang = langObj.speechLang;
+    }
     utterance.rate = 1.0;
     utterance.onend = () => {
       const wave = document.getElementById('voiceWaveAnimation');
